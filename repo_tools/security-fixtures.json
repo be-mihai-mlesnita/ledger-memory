@@ -1,0 +1,4 @@
+{
+  "2857dd740f07b055f06aaf2939670ffbf8a097f10457ac88ce66a128dc94ca03": "Reviewed synthetic JWT-shaped alphabet literal in deployment/tests/test_gateway_backend_contract.py, test_obvious_secrets_rejected. It is an intentionally invalid test input, not a credential.",
+  "3631b5f17840df1cb0575b3708c982cf0ad5f89a00a1b1af1dcdf21f75b9a1cf": "Reviewed synthetic sk-prefixed alphabet literal in deployment/tests/test_gateway_backend_contract.py, test_obvious_secrets_rejected. It is an intentionally invalid test input, not a credential."
+}

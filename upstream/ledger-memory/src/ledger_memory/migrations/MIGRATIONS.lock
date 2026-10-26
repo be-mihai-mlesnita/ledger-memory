@@ -1,0 +1,4 @@
+# ledger-memory migration catalog — order is authoritative, hashes are of raw bytes.
+# Third column: 'auto' = may be applied unattended; 'manual' (default) = never.
+001_baseline.sql  0e39fc4c90809c2d4704a93cd0c081589fac5b47d6b8bc226608a90a6a6e4e7a  manual
+002_read_path.sql  7e63f85b4d2cce8dad9d1975f84c7c0e6f6e103af328386111e7b4898504f3c3  manual

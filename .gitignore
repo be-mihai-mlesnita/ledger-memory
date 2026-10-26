@@ -1,0 +1,51 @@
+# Local state, generated files and development environments
+.DS_Store
+._*
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+node_modules/
+.repo-local/
+*.log
+
+# Downloaded third-party model bundles are reproducible dependencies, not source.
+/builds/models/
+*.onnx
+*.onnx_data
+*.onnx.data
+*.safetensors
+*.gguf
+
+# Never publish live memories, worker state, authentication or private keys.
+.ledger-memory/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.db.xz
+.env
+.env.*
+!.env.example
+!.env.template
+auth.json
+auth.key
+reader.token
+credentials.json
+supervisor.json
+active-request.json
+verified-model.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+
+# Additional machine-local publication exclusions are kept outside version control.

@@ -1,0 +1,696 @@
+{
+  "version": "0.3.0rc3",
+  "archive": "builds/ledger-memory-0.3.0-rc3.zip",
+  "sha256": "ba95854518b304a65832c20691678c132814d03c3590e2d91cb79671c57c74aa",
+  "snapshot": "upstream/ledger-memory",
+  "file_count": 114,
+  "tree_sha256": "8a2ad170d4c06a606e8662a8b39b248ed3303aa58053cea619293e196d1caf8d",
+  "content_modified": false,
+  "complete_archive": false,
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "818c2c940450c93ed35a71997dfa3fa654d3edd59db7d06c720e89b47f625dbf",
+      "bytes": 50,
+      "executable": false
+    },
+    {
+      "path": "MEMORY-RULES.md",
+      "sha256": "58bfd8678e0c212b1aa9dcfcf40afb901285c84a5e7500c767ae9bcd1fe853ff",
+      "bytes": 3745,
+      "executable": false
+    },
+    {
+      "path": "README.md",
+      "sha256": "f00ad61cb16b463cb31048a5142ac1df92d98fc5c3896f0add8eed637d8f7e05",
+      "bytes": 24640,
+      "executable": false
+    },
+    {
+      "path": "START-PROMPT.md",
+      "sha256": "75c8ef8ed6c5e1d4c3820c50efbaef45a0d91fc426a40e79fcaf81f139e4b309",
+      "bytes": 4037,
+      "executable": false
+    },
+    {
+      "path": "install.ps1",
+      "sha256": "c6a4e33553c996ef94dce5db28e6d0288cfeafc98e125367a9707023bc1a8dee",
+      "bytes": 3917,
+      "executable": false
+    },
+    {
+      "path": "install.sh",
+      "sha256": "ea76584150d0780a49b1afc8052ac8dbfeecdbc53795e3a01faac321c542ce25",
+      "bytes": 5828,
+      "executable": true
+    },
+    {
+      "path": "install/configure_opencode.py",
+      "sha256": "682714523cde9d6f1b237dad5769c41e1a84518962d96fbb51d03d1589253ca7",
+      "bytes": 4036,
+      "executable": false
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "7af3596570421e2bba0940b23f00b619f745c0c345a5955f40b565f07bce86a8",
+      "bytes": 906,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/__init__.py",
+      "sha256": "9c4692e936540dd410ab1c071e0d27c0743ef73b0887e4af5bcc2ec21c121e05",
+      "bytes": 66,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/about_me_recall.py",
+      "sha256": "d0b9bfb5b2b95cf00a042635f9824bc07b071a4b33a0a29f39fc81a05753a820",
+      "bytes": 40668,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/acceptance.py",
+      "sha256": "caf182d06cc58d9cecf22f68f91ddcb19cd5327a05f719f44f70accb9fea268e",
+      "bytes": 5742,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/actors.py",
+      "sha256": "9ccaa9a3f707a5c45ee0f156889984b303defa11c27bb890e997ca23ba405f48",
+      "bytes": 4858,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/adapters/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/adapters/onnx_bge.py",
+      "sha256": "c80157539289a217b2af71bfe4eaafeeb91974194684a067e18438bce04c8a89",
+      "bytes": 11043,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/api.py",
+      "sha256": "022c6727de1e79a90fcd83abee10e633358f8aa9442d3aee8e7b7b7b70577d04",
+      "bytes": 60076,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/audit.py",
+      "sha256": "5d3c38d983a197bc8473cb0eb5115d2989528079440de5bc9cb46c6cd99c0c41",
+      "bytes": 4047,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/authenticated_context.py",
+      "sha256": "9f26a7491db065a044a96069eab2205cf8b58b8069f38c16f88e68bd7b890bcd",
+      "bytes": 4640,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/bge-m3-manifest.json",
+      "sha256": "8d5389e21547bfac2e2a574640fb95ecc91a3a8de60542a3bf1982b452267597",
+      "bytes": 1417,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/brain_identity.py",
+      "sha256": "0283eb58cd25fc26dff3ade56e80d49eb6c62d83129cac3b0cd5c6ad549dff7f",
+      "bytes": 3728,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/briefing.py",
+      "sha256": "3464e15044f83563e30fd09bc885eb00c69f946c53df78929fb58499e9f5785e",
+      "bytes": 10093,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/candidates.py",
+      "sha256": "623545eb18abf7ee4c753f9bced50afb07cb2f59c8289ca378d449f988127e2f",
+      "bytes": 39769,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/chunk_embeddings.py",
+      "sha256": "da99398b6188e42de0e23836a9a9a3e2bc35ba62a2a8af616245ecd0eee692c8",
+      "bytes": 5181,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/chunkers.py",
+      "sha256": "24bffba303b020a229decde70aec15b98485cd4fe8158caa74b5cdc64bba5ccf",
+      "bytes": 6240,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/chunks.py",
+      "sha256": "3c146f341ee3b6b96fde0660b870058d9b78a6e31d0075181ac6664d179aed14",
+      "bytes": 4955,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/claim_envelope.py",
+      "sha256": "0e0131f9f7eaccc771a54c8505d405f8578a82dd732fe78567d04eb95e640010",
+      "bytes": 14142,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/cli.py",
+      "sha256": "d2e81a6b51e03824097392259ee8ddde791a23e962508d7f4ec41433bea2542e",
+      "bytes": 17626,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/client_auth.py",
+      "sha256": "b1ae94a0ac63fc834c11b20f2d1ead8a54ef8c4c50b1a335e89148012d9a77a4",
+      "bytes": 26548,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/config.py",
+      "sha256": "27de5c562731d271d5032c6273d8fa09e5a163d7a38099b4148a1e00a0045037",
+      "bytes": 3883,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/context_compiler.py",
+      "sha256": "b1482f5109f97eb076fbed47f4c8fb5e31413d3442dc782ed098d2e6f4ce52af",
+      "bytes": 15661,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/context_packages.py",
+      "sha256": "bc7eff76e5698f7f361dfa5e42c531791ff3d9a9de60555c6d9d810fd53e1686",
+      "bytes": 28188,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/context_tool.py",
+      "sha256": "473b7e8c3dc8899ef914aec6797f887bcbeed05e85bec478a31d68b7211da594",
+      "bytes": 11905,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/db.py",
+      "sha256": "e38a358a8af20fd4f629284590e0f184c7414832a1e33635dc993cb25197f65f",
+      "bytes": 18692,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/db_packaging.py",
+      "sha256": "f459d83f308cf0690ea5f0bfa8ac9575739bd3ab0fb3f5c3f41d4624b6c75d76",
+      "bytes": 15025,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/decisions.py",
+      "sha256": "00bdf66c01e29474ab6737c231f5c8576238e2cd9b80cd66fdde848a23165856",
+      "bytes": 5966,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/documents.py",
+      "sha256": "e3331dddacf7a72a683514f042ff023008c0402c3782e4802d18048506212b3a",
+      "bytes": 7227,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/embedding_recipe.py",
+      "sha256": "1e2dfdc037bcb71252457975aaea33d4f6a188f4135522ace0a3ef1d0d9e34c2",
+      "bytes": 11985,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/embedding_worker.py",
+      "sha256": "e2ea78d6e7435347abe1097e490526ebced7b764579e7344c335e5c5deca5904",
+      "bytes": 37778,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/embeddings.py",
+      "sha256": "e54ceccc7ce2a19a4fb76f14a53721c355dbf6cf177bddf173f558a3f92d7655",
+      "bytes": 4408,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/emission.py",
+      "sha256": "c996d9830094fcda41e4cbe18dcffc3b6753116f4110b0f4b2f2d227ff9909ae",
+      "bytes": 2733,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/entity_resolution.py",
+      "sha256": "6013fcbffac317b23215679230a0a1a7f224e43956481b914f4f5d042f77d500",
+      "bytes": 29569,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/events.py",
+      "sha256": "9a010daa5cb73ecc48f532fd0243d41e80f2292ce38514bd904bde1b0cac92ad",
+      "bytes": 7800,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/fact_authority.py",
+      "sha256": "dcc211b25c3a0bf10ebf601144f2a4f16527d3b51056bfc5c1a23064b21e6cb3",
+      "bytes": 7514,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/facts.py",
+      "sha256": "fa6b040346bf5a83c0726527ac8283cc9dea2e74f5d4f90cba672e7217d05faf",
+      "bytes": 28701,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/fs_safety.py",
+      "sha256": "222daf9e2ed96ca7b95b05d6e0e78532e3182cc8aa0b0a200513fa6d677a6724",
+      "bytes": 5823,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/graph_recall.py",
+      "sha256": "410da0d2af7b91f907680194301d2c68405543ef12c32ca8a56b0b63d568cf2c",
+      "bytes": 14164,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/instruction_shape.py",
+      "sha256": "141e3c9a6f93fa2aedddb0cf0557315a92f67d7b92a03cb09322f1416ab28bfc",
+      "bytes": 5622,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/integrity.py",
+      "sha256": "e9bed61d0dbdc9e3823ad5b8cab321fdeaddedb1acd7a237f9396c037eec2c21",
+      "bytes": 8854,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/interaction_authorization.py",
+      "sha256": "15d86bc5cdd115714bd37f727e6971b426200d267acf46b08ba72284504dae30",
+      "bytes": 25232,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/knowledge_graph.py",
+      "sha256": "dc062a8f1600561c588ec6ffaa877cabacb5b936b46c13a84d85437c3f1b30bd",
+      "bytes": 14283,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/locking.py",
+      "sha256": "feec5f7a632c2d4c103f9c4ce8bdbf6d3ff10cb060b1bec35b5e3e65dc3ed6c9",
+      "bytes": 12846,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/mcp_server.py",
+      "sha256": "0eca2955451e425aab939eaa6650a19791825acd401bf21a1df519ba30b1d5fd",
+      "bytes": 11915,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/mental_model_challenge.py",
+      "sha256": "79cb2db5f3162c7a4356fc9a7e663c8fe0dd81252e1fe31df90417c80fc080b7",
+      "bytes": 14966,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/mental_model_compiler.py",
+      "sha256": "d9c5555620c3197f254a7f00ee6ecfd707f85c087170caed70efb35a36952b9b",
+      "bytes": 33383,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/mental_model_eligibility.py",
+      "sha256": "e868efbdd1c48082e4a7feef210da342ff9aa27c5963990f004b53d8520ea36a",
+      "bytes": 38157,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/mental_model_provenance.py",
+      "sha256": "c6dd8c063b1afde25a632c87bba9f15dbf5bfff33bafaa3f3c03230523019c64",
+      "bytes": 23423,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/mental_models.py",
+      "sha256": "71725ae5f938f3cf39de57e0888a7df72553d1daa45d07dcae38170d099ff21e",
+      "bytes": 41449,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/migration_catalog.py",
+      "sha256": "bd964f434287d073d2a9a2f3b31ab7cbc5d69a3f7945ad74ad4fd569361ab052",
+      "bytes": 10721,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/migrations/001_baseline.sql",
+      "sha256": "0e39fc4c90809c2d4704a93cd0c081589fac5b47d6b8bc226608a90a6a6e4e7a",
+      "bytes": 11772,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/migrations/002_read_path.sql",
+      "sha256": "7e63f85b4d2cce8dad9d1975f84c7c0e6f6e103af328386111e7b4898504f3c3",
+      "bytes": 12641,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/migrations/MIGRATIONS.lock",
+      "sha256": "956f44e850dd1eccc8e7a40163610c4ebb8790bedbe6d6d0944d3cc619631f8a",
+      "bytes": 350,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/migrations/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/model_artifacts.py",
+      "sha256": "7f4630796319877c1d28b5840e4817b15111b81236a425362092db1fdd680018",
+      "bytes": 17550,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/paths.py",
+      "sha256": "95b2bad7b5e7dc132670f9b15927e31890d746c84dc8b990980343ca7e52b588",
+      "bytes": 934,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/presence.py",
+      "sha256": "2f86a6714888c94ddb4892f2df9a9bd8c6a2be14597d1091d3deddf927d16866",
+      "bytes": 1389,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/rag_search.py",
+      "sha256": "0f8ec8b6ee6d54c47a306947faf8a1a6a7fb977acd8ac47e613d22b5e5c92118",
+      "bytes": 9182,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/read_audit_retention.py",
+      "sha256": "01fd9e21e491ce2a003027420d5474dc7a1923207803649ecd08a27eca3dd64c",
+      "bytes": 3030,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/reader.py",
+      "sha256": "5f365ac4c957031009c4c603058d9ec614a43d2271c62f34f506e346664458e6",
+      "bytes": 13862,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/relationships.py",
+      "sha256": "289816b2bb2dc5a17cb179bd3af2b992fd494c413c3d3272440f51bd689cfb36",
+      "bytes": 4754,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/retention_policies.py",
+      "sha256": "cf82a240c0d431dec32c6624843d8f66a17a57ae4c7ebe0041936d5cafd1cde9",
+      "bytes": 16047,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/search.py",
+      "sha256": "3e50d244c9c1a128e217b89794ca81df964fbcac3ef3a50333c78cf0101eb86e",
+      "bytes": 7535,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/search_display.py",
+      "sha256": "8e1363314e5fad804de31ea13191beb2ee48418a2548b520f4ca70e5383735b4",
+      "bytes": 2713,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/search_index.py",
+      "sha256": "7b37bc9df276676761c074a798b183860b39b88134c51d00f6d4ecd8edc05d3c",
+      "bytes": 47193,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/selftest.py",
+      "sha256": "2c2ef6d4c3e45cad53f30d5e5e5038266ba12aa8aae314a5a6dd1b8af0b49f06",
+      "bytes": 8280,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/semantic_binding.py",
+      "sha256": "86ada8ccdd338615486a89f8161ed115f43a9fe41392ad366f2f9e909d719d8f",
+      "bytes": 14135,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/semantic_index.py",
+      "sha256": "ec1204dc0ce05ebfd2e3f3e62c797f5473eebc6c0484dca5550349b452d59fca",
+      "bytes": 14499,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/semantic_pending.py",
+      "sha256": "9e7cfa276a9aacd41bd4a21be172293bbe0855eebb1b035dd3f75cf61857854c",
+      "bytes": 23676,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/semantic_readiness.py",
+      "sha256": "7917c009315f8ffd9e7137cbb70390d289b91c4d5a2761f08fae15052e7e2820",
+      "bytes": 5937,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/semantic_rebuild.py",
+      "sha256": "418daee0d4e24420c58d1c76d4575ddd1235424d1ceaaed776d1463c3f2368ec",
+      "bytes": 30784,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/semantic_search.py",
+      "sha256": "dcab9c5433b3ea27974e4993def490bb2b2541258ca18ba1f9fc1ac9a64e7538",
+      "bytes": 18568,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/semantic_vec.py",
+      "sha256": "e0329529e7f9f6f9b57a7cd0d428130a35a20806d4f3abb439255691cbb9e352",
+      "bytes": 5720,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/temporal_view.py",
+      "sha256": "eb96900737d6c8ebaad5e1651c11c7c8ea07658ea23c4f77f0cc01d48bcb775a",
+      "bytes": 12910,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/textfold.py",
+      "sha256": "04302ba795fd52aaf099ba2d22af1255c7ca68d39c113e779d04d1e551dc2c74",
+      "bytes": 2711,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/tiered_read.py",
+      "sha256": "b543d8086a1c17e2cca55a74d7444da23dc199b97df69c99a04f573eeb509b64",
+      "bytes": 34136,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/tiers.py",
+      "sha256": "f984e4aa18c54ae3c99e50c037dae0b7c8a487c0ea090dbfa87c3f1f71e053ac",
+      "bytes": 1484,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/token_budget.py",
+      "sha256": "4ff825af4698e7f34667ae5dbe570a3bb92655ace1d03be703dfc93fe7cbf6c4",
+      "bytes": 5413,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/unified_search.py",
+      "sha256": "4cb4813c1c4e89a22555cb55c132b67ebfbc562ca1a07b4ff6299d5434a30190",
+      "bytes": 6212,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/v1_record.py",
+      "sha256": "78ca240756c8ac15c6d751b165a228f0ab024a4103433c15b7f25c83666c37fc",
+      "bytes": 6806,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/v1_service.py",
+      "sha256": "ff46128e5f88264e8fc27736990152328fe635461542baab9b18b47dc3cffcbd",
+      "bytes": 25612,
+      "executable": false
+    },
+    {
+      "path": "src/ledger_memory/worker_spawn.py",
+      "sha256": "5d537b440ca7b8344628c976dfb1fa1fce66b6f25b8c29df23d08c3490c4ab5a",
+      "bytes": 1678,
+      "executable": false
+    },
+    {
+      "path": "tests/conftest.py",
+      "sha256": "d0001f3dcf7b2b63afb85915219ebe38e194939064c54897defa5d90bb7198d7",
+      "bytes": 5123,
+      "executable": false
+    },
+    {
+      "path": "tests/test_acceptance.py",
+      "sha256": "3e669c464e30843c2c52900a204d9fdb0ca9315ba61da33ae35d89d76477aab9",
+      "bytes": 8494,
+      "executable": false
+    },
+    {
+      "path": "tests/test_clean.py",
+      "sha256": "8ee9cd7cea37902ad9c532501db017f9113f26eefc9d2f30af559b25461ec29c",
+      "bytes": 3029,
+      "executable": false
+    },
+    {
+      "path": "tests/test_embedding_worker.py",
+      "sha256": "1068fbfee8341c30fbd34f019fef1d44f97f520591f9e1b24456fa631925a30e",
+      "bytes": 51437,
+      "executable": false
+    },
+    {
+      "path": "tests/test_hardening.py",
+      "sha256": "d00d04cd65c9adfc96ebe043a9c7e331473c95e4f2587f6f07d2b3b0d829a726",
+      "bytes": 54111,
+      "executable": false
+    },
+    {
+      "path": "tests/test_installer_versions.py",
+      "sha256": "a36f6a1af1d85f5f80a37a7ac10d0c585c51ee65aacdc5e768d3ef390052ea61",
+      "bytes": 11362,
+      "executable": false
+    },
+    {
+      "path": "tests/test_ledger.py",
+      "sha256": "cbc27375b7cc15cc7e906c4923e99efb44f4ff898c1f4c7f5803345f34d66e1c",
+      "bytes": 6721,
+      "executable": false
+    },
+    {
+      "path": "tests/test_mcp.py",
+      "sha256": "1b2ed59e618ad4350f3eb433fbbd99a86366cc0d06e119af704f1d76b2178bad",
+      "bytes": 5112,
+      "executable": false
+    },
+    {
+      "path": "tests/test_model_artifacts.py",
+      "sha256": "a551958df899022e169712fff117b7888b8f860730d1fd94d43147d46e4604dd",
+      "bytes": 27060,
+      "executable": false
+    },
+    {
+      "path": "tests/test_onnx_bge.py",
+      "sha256": "b8458e1600764175341125e78a735c371bb00a72d409409356d32a317efc0d27",
+      "bytes": 14608,
+      "executable": false
+    },
+    {
+      "path": "tests/test_read_path.py",
+      "sha256": "902bcb324df1846cba7aaa8655e85efae52341920c29d22567905ed211c92e92",
+      "bytes": 32935,
+      "executable": false
+    },
+    {
+      "path": "tests/test_restore_marker.py",
+      "sha256": "d4a88c267d89a3bf944c15b7c6113a38ea5e025cd1cce6947e5875321057cbe5",
+      "bytes": 8225,
+      "executable": false
+    },
+    {
+      "path": "tests/test_restore_sessions.py",
+      "sha256": "151d5321831cd4940ff221cfbd730693e06114a32a56aa6ba52cd44f023bbdc1",
+      "bytes": 6474,
+      "executable": false
+    },
+    {
+      "path": "tests/test_restore_vectors.py",
+      "sha256": "9a6cd492d346abd1ab2d46fc6223cbda8c889c80ef9a1abeb3eacca70dd3fdfd",
+      "bytes": 2324,
+      "executable": false
+    },
+    {
+      "path": "tests/test_review_fixes_candidates.py",
+      "sha256": "c89cedf288d1590abdf36010e7dfb1c49929521b3a3c79d1b66054c026202f82",
+      "bytes": 2633,
+      "executable": false
+    },
+    {
+      "path": "tests/test_review_fixes_revise.py",
+      "sha256": "b89a93aa7ad9a83a14c4781ebfaadf1a1f63af2462dfcb91b37cffa6ea3f7760",
+      "bytes": 6508,
+      "executable": false
+    },
+    {
+      "path": "tests/test_review_fixes_writes.py",
+      "sha256": "75c15881c2a0c0009fbe662f468c3b3e7ec3188a1deada5934cc5840241ba64b",
+      "bytes": 6206,
+      "executable": false
+    },
+    {
+      "path": "tests/test_schema.py",
+      "sha256": "ffcc78d13a1bd0b4dee8e195381cd2655aaa092f2d3cdbc8cbe02178f1da5493",
+      "bytes": 2434,
+      "executable": false
+    },
+    {
+      "path": "tests/test_selftest.py",
+      "sha256": "32ee908e675d310656b4259605514993170e41994bceea324601a692dcc41ecd",
+      "bytes": 803,
+      "executable": false
+    },
+    {
+      "path": "tests/test_semantic_pending.py",
+      "sha256": "da0b7b9cfbab26c62ed3dae6e92fee67f69f319b20be0cedf28ab385476b2a45",
+      "bytes": 105682,
+      "executable": false
+    },
+    {
+      "path": "tests/test_semantic_switch.py",
+      "sha256": "51c83fd9afcb99a442e1fb95d0057fbd174d25ffb739bea742e1a41ab283c8f2",
+      "bytes": 17751,
+      "executable": false
+    },
+    {
+      "path": "tests/test_session_lock.py",
+      "sha256": "03c132ae7cb2925b2cefe0c5d30feb1ce22a5d08eaea36eb1b4c65eeb7f6251a",
+      "bytes": 2323,
+      "executable": false
+    },
+    {
+      "path": "tests/test_session_registration.py",
+      "sha256": "ce62c5f259e1655d82c12e87c34112d346806a22c6053d8f0a27db63e1fec5d2",
+      "bytes": 2311,
+      "executable": false
+    },
+    {
+      "path": "uninstall.sh",
+      "sha256": "6e06c34d7bdb7a6e29434e012d86bc7d7ca8c1cbf9516c6c0f3e0340c13ca19c",
+      "bytes": 885,
+      "executable": true
+    },
+    {
+      "path": "uv.lock",
+      "sha256": "eaac2ff4ea6517ba5fa855ef47c41dabf1fc9bb3512eb0362ba5600167ad11a6",
+      "bytes": 235389,
+      "executable": false
+    }
+  ]
+}
