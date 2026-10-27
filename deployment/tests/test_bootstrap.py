@@ -308,8 +308,9 @@ class BootstrapTests(unittest.TestCase):
                 self.env["FAKE_MODE"] = mode
                 self.assert_refused(message)
 
-    def test_checked_in_manifest_is_disabled_before_prerequisites(self):
+    def test_disabled_manifest_stops_before_prerequisites(self):
         self.manifest = json.loads((ROOT / "deployment/distribution.json").read_text())
+        self.manifest["ready"] = False
         self.env["FAKE_RUNTIME"] = "no"
         self.assert_refused("disabled/not ready")
         self.assertFalse(any(name in {"brew", "uv"} or name.startswith("python") or args[:2] == ["release", "download"] for name, args, _ in self.calls()))
@@ -523,6 +524,7 @@ class BootstrapTests(unittest.TestCase):
 
     def test_homepage_disabled_distribution_still_blocks_python_and_kit(self):
         self.manifest = json.loads((ROOT / "deployment/distribution.json").read_text())
+        self.manifest["ready"] = False
         self.env.update(FAKE_COMPLETE_BOOTSTRAP="yes", FAKE_RUNTIME="no")
         code, output = self.run_homepage()
         self.assertNotEqual(code, 0, output)

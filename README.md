@@ -1,14 +1,44 @@
 # Ledger Memory For Mac
 
-**Publication pending. The command below is not currently a live installer.**
-The distribution manifest is deliberately disabled. An approved, publication-audited
-kit and its exact tag, build commit and SHA-256 are required before enabling it.
-No release, commit or checksum has been fabricated or approved by this command.
+**Install, upgrade or uninstall BeMind's shared memory from Terminal.**
+The command below downloads the verified `bemind-mac-setup-1` prerelease.
+This repository is private: your GitHub account must have access to it.
+
+## Start Here
+
+1. Have BeMind installed for a new installation or upgrade. It is not required to
+   uninstall an existing managed memory installation.
+2. Open **Terminal** on your Mac. Copy the **entire code block** under One Command,
+   paste it into Terminal, and press Return. Do not add `sudo`.
+3. If prompted, approve prerequisite installation or GitHub sign-in separately.
+   Complete any GitHub browser/device sign-in yourself; never paste credentials
+   into the command. Installing missing tools uses existing approved Homebrew.
+4. For a new installation, read the displayed changes and type `yes` or `ok` to
+   proceed. For an existing installation, choose **1. Upgrade**, **2. Uninstall**
+   or **3. Cancel**, then confirm the displayed action. Enter or any other response
+   cancels at an approval prompt. Earlier approved prerequisite changes may remain.
+5. After a successful install or upgrade, restart BeMind yourself when your work
+   can safely stop. Already-open instances do not automatically load the new setup.
+
+**To upgrade later:** run the same command again and choose Upgrade. It finds the
+currently approved release; no command edit is needed.
+
+**To uninstall:** run the same command and choose Uninstall. Managed integration
+and owned runtimes are removed; memory, histories, backups and receipts are retained.
+
+Automatic indexing threads use one-third of usable logical CPUs, rounded down
+(minimum one, maximum 32): a 12-CPU Mac gets four threads. Upgrades preserve the
+saved choice. This is not a strict CPU-percentage cap, and running model workers
+keep their previous setting until safely restarted. Model downloads remain opt-in.
+The installer does not import your conversation history.
+
+Tested on Apple Silicon. Intel-Mac runtime execution and real Luna authentication/
+inference were not part of this release's validation.
 
 ## One Command
 
-After publication, paste the entire block from the private project's GitHub
-homepage into Terminal. Reuse the same command for future approved updates.
+Paste the entire block from this private project's GitHub homepage into Terminal.
+Reuse the same command for future approved updates.
 Each run authenticates to the fixed repository and resolves `main` exactly once.
 It validates that full commit SHA, then fetches the bootstrap, manifest and
 verifier at that immutable snapshot. This trusts the authenticated repository's
@@ -67,6 +97,15 @@ official browser/device flow and terminal prompts directly, never by putting
 credentials into this command or chat. Declining either prompt stops immediately.
 Nothing installs GitHub CLI or changes authentication without that consent.
 
+## If Setup Stops
+
+| Message or situation | What to do |
+| --- | --- |
+| Cannot read the private repository | Check that GitHub CLI is signed into an account with repository access. A working browser login alone is insufficient. |
+| No approved Homebrew or required tool available | Obtain the missing GitHub CLI, Python or uv through your approved software process, then rerun the same command. This installer does not install Homebrew. |
+| Unmanaged installation, edited configuration or recovery marker | Stop and reconcile the reported state. Do not delete memory or receipts to force installation; automatic adoption/removal is deliberately refused. |
+| An active session or worker prevents an operation | Let the work finish and close the relevant application sessions when safe, then retry. Do not force-delete runtimes or lock files. |
+
 The manager provides the **install / update / uninstall** menu and the final
 action confirmation. This bootstrap does not implement those operations itself.
 It does not force a BeMind or model-worker restart. Any required application
@@ -114,7 +153,7 @@ The manifest has these fields:
 | Field | Enabled Manifest Contract |
 | --- | --- |
 | `schema_version` | Integer `1` |
-| `ready` | Boolean `true`; checked-in value is `false` |
+| `ready` | Boolean `true`; `false` disables new bootstrap downloads |
 | `repository` | Exactly `be-mihai-mlesnita/ledger-memory` |
 | `platform` | Exactly `darwin` |
 | `architectures` | Exactly `["arm64", "x86_64"]` |
@@ -138,9 +177,9 @@ For `layout: "root"`, the extracted kit has `manage.py`, `bemind_deploy.py`,
 `gateway/`, and the configured `ledger-memory-VERSION.zip` plus its `.sha256`.
 For `layout: "deployment"`, all those entries are under `deployment/` and no
 siblings are allowed. The verifier's fixed `FILES` allowlist also permits the
-existing PowerShell launchers and neutral deployment documentation. The parent
-bundle builder must include **`manage.py` and `bootstrap_verify.py`**; existing
-kits without the manager cannot be bootstrapped.
+existing PowerShell launchers and neutral deployment documentation. The release
+kit includes **`manage.py` and `bootstrap_verify.py`**; older kits without the
+manager cannot be used with this bootstrap.
 
 Only ZIP_STORED and ZIP_DEFLATED are supported; no ZIP extra metadata is accepted.
 The limits are 128 members and 512 MiB compressed/uncompressed. Traversal, absolute
@@ -163,9 +202,11 @@ It cannot clean up after SIGKILL or power loss; stale `ledger-bootstrap.*` and
 `ledger-homepage.*` directories should be reviewed before manual removal.
 
 There is deliberately no local-kit bypass or automatic fallback to unreviewed
-source. Tests exercise enabled local fixtures through a fake GitHub CLI without
-downloads, authentication changes or real manager actions. A real end-to-end
-installation remains pending an approved artifact and separately owned manager.
+source. Offline bootstrap tests use a fake GitHub CLI. A separate disposable Mac
+test performed real install/upgrade/uninstall operations with offline dependencies,
+preserved synthetic memory and restored configuration. The published release's
+downloaded bytes, provenance and extraction have also been verified. No production
+installation or real model authentication/inference was performed by those checks.
 
 ## Offline Tests
 
@@ -225,9 +266,9 @@ Supply a verified core ZIP and checksum for manual setup; `deployment/install.sh
 selects an explicit input. The BeMind entry point is `deployment/`, not the generic
 installation helpers in the source snapshot.
 
-The active installation remains on its previously validated rc6 kit. The new
-Mac installer and runtime distribution are separately validated source changes;
-editing this repository does not install or activate them.
+Publishing this release does not upgrade an existing installation. Run the
+homepage command and confirm Upgrade when ready; production installations are
+not changed by repository publication.
 
 ## Deliberately Not In Git
 

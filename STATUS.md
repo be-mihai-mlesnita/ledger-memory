@@ -123,24 +123,29 @@ Updated October 27, 2026.
   `4ebb3c8f4c5e72c1741b78e15e4f57b8488d2219ca33ce88e08a2cf08ee2826b`.
   Source and nested package audits applied the required local policy with zero findings.
   This is a heuristic check, not a guarantee of perfect secrecy.
-- Source changes do not activate a release or alter the live installation. The distribution
-  manifest remains disabled until the exact source, release asset and activation are approved
-  for publication. No commit, push, release upload or production upgrade was performed.
+- Private prerelease `bemind-mac-setup-1` was published from reviewed source commit
+  `643f96555661c84082e3a91df7ef5f9996b0dd0b`. The downloaded release ZIP, checksum,
+  tag target, exact release notes and nested archive privacy were verified.
+  The enabled manifest pins that verified source and asset; the README includes
+  setup steps, upgrade/uninstall choices, cancellation and troubleshooting guidance.
+  No production installation, upgrade or worker restart was performed.
 - The separately named local kit is
   `deployment/dist/bemind-ledger-memory-0.3.0-rc6-mac-setup-1.zip`, SHA-256
   `601c2dc589c720b8510161bf35cf5cf65c3d0ab42cbd3ccc6e6b662fa989e3a5`.
   Original deployment kits remain available unchanged. The promoted project passed the
-  same 1,306-test suite and nested-archive audit; the homepage command is not live yet.
+  same 1,306-test suite and nested-archive audit. Publishing the homepage command
+  does not upgrade existing installations without their users' explicit confirmation.
 - Passive live check at 16:02 EET on October 27: the original rc6 indexing process
   remained active, with 23,438 vector receipts, 16,182 pending and zero failure rows.
 
 ## Repository
 
-- Intended personal repository: `be-mihai-mlesnita/ledger-memory`, private.
+- Personal repository: `be-mihai-mlesnita/ledger-memory`, verified private.
 - Git metadata is local to the work Mac, outside the synchronized working folder. Use a
   separate clone on other machines, not the machine-local `.git` pointer.
 - The repository audit covers nested archives as well as plain files. Its two explicit
   literal exceptions are reviewed synthetic credential-rejection fixtures, not secrets.
-- Source, tests and selected technical documentation are versioned. Binary artifacts,
-  operational notes, model weights, caches, runtime state and live databases are local-only.
+- Source, tests and selected technical documentation are versioned. Audited source-only
+  ZIP kits are private release assets; operational notes, original input packages,
+  model weights, caches, runtime state and live databases remain local-only.
 - Check Git/GitHub for actual publication state. No unattended publishing is configured.
