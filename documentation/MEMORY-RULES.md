@@ -32,6 +32,9 @@ belief stays recoverable. Use it so the user never has to tell you the same thin
 - Use a short `kind` such as `preference`, `person`, `system`, `process`, `project` or `note`.
 - Don't remember small talk, things that only matter to this message, or anything you're unsure is worth
   keeping.
+- If a write fails or times out and you are not sure it was saved, call `write_status` with its `request_id`, or
+  send the same write again with the SAME `request_id`: it is saved once, never twice. So give each write its own
+  `request_id` (any unique text, such as a time and a short label).
 
 ## When something changes
 - A remembered fact is wrong or outdated: `revise` it with the correction and the reason ("the user said it

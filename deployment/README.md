@@ -16,14 +16,66 @@ are included in this deployment kit.
 - On Windows: PowerShell 7.2 or newer and permission to run the scripts under your
   organization's policy. Obtain approval/signing if policy blocks them; do not bypass it.
 
+## Guided Mac Setup
+
+The repository homepage provides the authenticated GitHub bootstrap command.
+It resolves the approved source snapshot, verifies the selected release kit and
+starts `manage.py`. A fresh installation is described before an explicit `yes`
+or `ok` is accepted. Existing managed installations offer Upgrade, Uninstall or
+Cancel. Empty input, EOF and non-terminal input never approve an action.
+
+From an already verified, extracted kit with Python 3.11 or newer:
+
+```sh
+python3 -I -B manage.py
+python3 -I -B manage.py --dry-run
+python3 -I -B manage.py --embed-threads 6
+```
+
+Fresh installation and upgrade require an existing BeMind executable. Uninstall
+does not require BeMind or uv. The guided workflow can offer uv installation
+through an existing approved Homebrew installation, with separate consent; it
+does not install Homebrew, use sudo, or silently change shell profiles.
+
+Automatic embedding threads are one-third of the usable logical CPU count,
+rounded down, with a minimum of one and maximum of 32. The resolved count is
+saved at installation and preserved on upgrade. `--embed-threads N` selects an
+explicit count; `--embed-threads auto` recalculates the automatic choice.
+This controls inference concurrency, not an exact CPU-utilization quota. No
+niceness change is made. Existing shared model workers retain their old setting
+until safely restarted; the installer does not force-stop them.
+
+The bootstrap manifest remains disabled until a reviewed source-only release kit
+has a published tag, build commit and SHA-256. Reusing the same homepage command
+then discovers future manifest-approved updates without editing that command.
+
+## Runtime Distribution
+
+The downloadable core profile is `bemind-runtime-1`, based on core `0.3.0rc6`.
+Its `DISTRIBUTION.json` records the original archive hash and the one diagnostic
+message wording override. Control and data logic are unchanged. Original release
+artifacts are retained separately; the distribution has its own checksum.
+
+From the repository root, prepare and audit the pinned runtime input before
+building a kit (the approved local publication policy is required):
+
+```sh
+python3 deployment/prepare_distribution.py --archive builds/ledger-memory-0.3.0-rc6.zip --output builds/runtime/ledger-memory-0.3.0-rc6.zip --audit-root .
+python3 deployment/build_bundle.py --output deployment/dist/bemind-ledger-memory-0.3.0-rc6-deployment.zip
+```
+
+The bundle builder defaults to `builds/runtime/`, not the original input archive.
+It includes the guided manager and the strict outer-archive verifier.
+
 The runtime dependency installation uses Python 3.13 by default and may download it
 through uv if a different interpreter runs the launcher. `--python` selects another
 runtime version; compatibility of the release's pinned dependencies must be checked.
 
 ## What To Distribute
 
-The ready-to-extract kit is `dist/bemind-ledger-memory-0.3.0-rc3-deployment.zip`, with
-an adjacent SHA-256 sidecar. Extract it into a new directory before running it.
+The kit name is derived from `ARCHIVE_NAME` in `bemind_deploy.py`; for the configured
+release it is `dist/bemind-ledger-memory-0.3.0-rc6-deployment.zip`, with an adjacent
+SHA-256 sidecar. Extract a separately built and verified kit into a new directory before running it.
 
 Alternatively, distribute these files together:
 
@@ -34,7 +86,8 @@ Alternatively, distribute these files together:
   `gateway_backend_contract.py`, and `worker_guard.mjs`. Do not include gateway tests,
   caches, private state or credentials. The installer copies only top-level runtime
   Python/JavaScript modules, excluding hidden files and `test_*` modules.
-- `ledger-memory-0.3.0-rc3.zip` and its unchanged `.zip.sha256` sidecar.
+- The configured `ARCHIVE_NAME` release (`ledger-memory-0.3.0-rc6.zip`) and its unchanged
+  `.zip.sha256` sidecar.
 
 Within this source workspace, the scripts also find the release in `../builds/`.
 Use `--archive /path/to/release.zip` for another approved release; its sidecar is
@@ -66,6 +119,9 @@ call occurs during installation. Public configuration contains only the Python g
 Existing unrelated content and comments are preserved. Public `ledger_*` is denied;
 `memory_read` defaults to `allow`, `memory_write` to `ask`, and
 `agent.plan.permission.memory_write` to `deny`. Existing matching denials remain denied.
+Pass `--memory-write allow` to let sessions write without an approval prompt; upgrades
+keep the previous choice until `--memory-write ask` is supplied. Plan-agent writes stay
+denied, and a stronger existing user policy (`ask`/`deny`) still takes precedence.
 No other agent configuration is changed. Private worker grants are scoped independently,
 not achieved by overriding a Task parent's denial.
 
@@ -270,7 +326,7 @@ for a caught interruption when no uncertain child cleanup needs to be reported.
 
 ## Validation
 
-macOS/Apple Silicon: synthetic safety tests plus an opt-in real rc3 installation test.
+macOS/Apple Silicon: synthetic safety tests plus opt-in real installation/upgrade tests.
 The real test covers install, repeat-install upgrade, an actual MCP handshake, refusing
 uninstall with an open session, uninstall, repeated uninstall and reinstall while
 preserving a synthetic fact. Tests never target the live development memory.

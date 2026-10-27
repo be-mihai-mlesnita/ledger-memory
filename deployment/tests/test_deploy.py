@@ -101,7 +101,8 @@ def test_fresh_install(box):
     assert "succeeded" in d.deploy(box.args)
     r = receipt(box)
     assert r["entry"] == config(box)["mcp"]["ledger"]
-    assert r["entry"]["environment"] == {"LEDGER_HOME": str(box.store), "LEDGER_AGENT_NAME": "bemind"}
+    assert r["entry"]["environment"] == {"LEDGER_HOME": str(box.store), "LEDGER_AGENT_NAME": "bemind",
+                                          "LEDGER_EMBED_THREADS": str(r["embed_threads"])}
     assert r["entry"]["command"][-1] == "serve"
     assert Path(r["runtimes"][0]).parent == box.app / "versions"
     assert config(box)["permission"]["ledger_*"] == "allow"
@@ -521,13 +522,14 @@ def test_unmanaged_noop_exclusive_installer_lock_and_confined_receipt(box):
     assert (box.config / "bemind.jsonc").read_bytes() == before
 
 
-def test_supplied_rc3_archive_passes_read_only_validation(box):
+def test_supplied_archive_passes_read_only_validation(box):
     release = Path(__file__).resolve().parents[2] / "builds" / d.ARCHIVE_NAME
     if not release.exists():
         pytest.skip("Optional supplied release not present in distributable test folder")
     before = tree(box.root)
     data, sha, version = d.verified_archive(release)
-    assert version == "0.3.0rc3" and d.digest(data) == sha
+    assert version == d.ARCHIVE_NAME.removeprefix("ledger-memory-").removesuffix(".zip").replace("-rc", "rc")
+    assert d.digest(data) == sha
     assert not box.calls and tree(box.root) == before
 
 

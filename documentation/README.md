@@ -80,13 +80,14 @@ In opencode, the tools appear as `ledger_<name>`.
 | `revise` | Replace a fact with a corrected version (a reason is required; the old version is kept). Optional `source` says where the correction comes from (see "Every fact says where it came from") | yes |
 | `dispute` | Flag a fact as contested, with a reason (and, optionally, the other fact it contradicts, so `brief` can show the pair) | yes |
 | `history` | Every version of a fact: who changed it, when and why | no |
-| `beliefs_as_of` | What was believed at a past moment | no |
+| `beliefs_as_of` | What was believed at a past moment, each belief with its source, when it became known, and whether it is still current | no |
 | `record_decision` | A decision, with its summary and rationale | yes |
 | `link_records` | Link two records (fact, decision, handover, document) | yes |
 | `create_handover` | Bundle context for the next session or agent; returns Markdown | yes |
 | `ingest_document` | Store a text document (paste the text, or give a file path: see the rule below) so its contents become searchable | yes |
-| `search_documents` | Search inside stored documents | no |
+| `search_documents` | Search inside stored documents. Without meaning-based search it ranks passages by how many of the question's words they contain (common words like "what" and "the" are ignored; words of one or two letters match whole words only), so a full question works as well as keywords. A full-text index over the passages keeps this fast as the store grows; a word matches whole or as the start of a longer word ("approval" finds "approvals"), not from the middle of one ("port" does not find "support") | no |
 | `memory_status` | Counts, location, and whether search is healthy | no |
+| `write_status` | Whether a write sent with a `request_id` was saved: `committed` (with the record's type and id) or `not_found` (no write was recorded under that id within the retention window; sending it again is safe) | no |
 
 Read-only tools carry the MCP `readOnlyHint`. No tool is marked destructive, because none is. Bad input is
 refused with a reason the agent can act on ("a revision must say why", "no fact 999"), before anything is
@@ -108,7 +109,8 @@ before the command for readable search results.
 | `ledger recall "query"` | search (`ledger --plain recall "query"` for one line per hit) |
 | `ledger brief "question" [--budget 1500]` | the same briefing the agent gets |
 | `ledger recall-more "query"` | one bounded extra look-up (each command is a fresh process, so it starts a fresh allowance) |
-| `ledger config KEY [VALUE]` | show or set `context.tool_reads_max` (1 to 5, default 3) or `context.briefing_budget_tokens` |
+| `ledger config KEY [VALUE]` | show or set `context.tool_reads_max` (1 to 5, default 3), `context.briefing_budget_tokens` or `writes.receipt_days` (default 30) |
+| `ledger write-status REQUEST_ID` | whether a write sent with `--request-id` was saved |
 | `ledger remember "fact" [--source user_said]` | store a fact as you |
 | `ledger revise ID "corrected fact" --reason "why" [--source user_said\|inferred\|observed\|document --document-id N]` | correct a fact |
 | `ledger dispute ID --reason "why"` | flag a fact as contested |
@@ -116,7 +118,7 @@ before the command for readable search results.
 | `ledger decide "title" --summary … --rationale …` | record a decision |
 | `ledger ingest FILE` · `ledger search-docs "query"` | documents |
 | `ledger backup` · `ledger restore ARCHIVE --out FILE` | backups (see below) |
-| `ledger check` | integrity check |
+| `ledger check` | integrity check, plus `files`: any memory file or folder other users of this computer could read (a report only; it never changes a mode) |
 | `ledger reindex` | rebuild search indexes, including a full repair of the vectors file if needed |
 | `ledger semantic enable` · `ledger semantic disable` (aliases `on` / `off`) | turn meaning-based search on or off (see below) |
 | `ledger semantic status` | `disabled`, `downloading`, `warming`, `indexing`, `ready` or `degraded`, with pending and failed counts and a reason. Never starts anything |
@@ -125,6 +127,20 @@ before the command for readable search results.
 | `ledger selftest [--offline]` | prove the install works (throwaway store). `--offline` forces keyword-only checks and contacts nothing |
 
 Refusals print `refused: <reason>` and exit with status 2.
+
+## Writes are safe to retry
+
+Every write tool (`remember`, `revise`, `dispute`, `record_decision`, `link_records`, `create_handover`,
+`ingest_document`) and the matching `ledger` commands (`--request-id`) accept an optional `request_id`. The memory
+saves a receipt for it in the same transaction as the write itself:
+- sending the same write again with the same id saves nothing new and returns the original record, marked
+  `"replayed": true`;
+- the same id with a different write, or from a different agent, is refused;
+- `write_status` answers `committed` or `not_found`. Because the receipt and the write are saved together, `not_found`
+  means no write was recorded under that id within the retention window, so sending it again is safe.
+
+Receipts are kept 30 days (`ledger config writes.receipt_days N`); a retry after that is treated as a new write. A
+document is also recognised by its content, so ingesting the same text twice never stores it twice.
 
 ## Which files the agent may read
 
@@ -213,9 +229,10 @@ Semantic results are the *closest in meaning*, so a result found only by meaning
 
 | Path | |
 |---|---|
-| `~/.ledger-memory/memory.db` | the memory (the only authoritative file) |
+| `~/.ledger-memory/memory.db` | the memory (the only authoritative file). Created owner-only (0600), as are its `-wal`/`-shm` files and `memory.vectors.db`, whatever your umask; an existing file's mode is never changed |
 | `~/.ledger-memory/reader.token` | the local reader's credential (owner-only; never shown) |
 | `~/.ledger-memory/memory.vectors.db` | embeddings for meaning-based search (derived; `ledger reindex` rebuilds it) |
+| `~/.ledger-memory/memory.db.connections.lock`, `~/.ledger-memory/.ledger.sessions.lock`, `~/.ledger-memory/.ledger.lock` | empty lock files: every open connection, every session and start-up/upgrade use them so a restore never overlaps live work. Leave them in place |
 | `~/.ledger-memory/backups/` | `ledger-<UTC time>.db.xz` with a `.sha256` file beside each |
 | `~/.local/share/ledger-memory/` | the program |
 | `~/.config/opencode/opencode.json` | the `mcp.ledger` entry and the rules file under `instructions` |

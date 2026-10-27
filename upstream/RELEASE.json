@@ -7,6 +7,17 @@
   "tree_sha256": "8a2ad170d4c06a606e8662a8b39b248ed3303aa58053cea619293e196d1caf8d",
   "content_modified": false,
   "complete_archive": false,
+  "deployment_target": {
+    "version": "0.3.0rc6",
+    "archive": "builds/ledger-memory-0.3.0-rc6.zip",
+    "sha256": "6ff85f5f0a90afd7dcdd97d10af0fcbaad8845448cf2dac67dabc6564ed35934",
+    "runtime_distribution": {
+      "profile": "bemind-runtime-1",
+      "archive": "builds/runtime/ledger-memory-0.3.0-rc6.zip",
+      "sha256": "4ebb3c8f4c5e72c1741b78e15e4f57b8488d2219ca33ce88e08a2cf08ee2826b",
+      "change_scope": "Runtime source packaging and one diagnostic-message wording change; control and data logic unchanged"
+    }
+  },
   "files": [
     {
       "path": ".gitignore",

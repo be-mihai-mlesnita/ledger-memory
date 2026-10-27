@@ -29,6 +29,8 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+from gateway_backend_contract import check_stat
+
 MODEL = "bemind-proxy/gpt-6-luna"
 TOOLS = {
     "facts": ("ledger_brief",),
@@ -170,9 +172,13 @@ def settings(path):
     except (ValueError, UnicodeError):
         raise GatewayError("invalid_settings") from None
     required = {"schema", "owner", "store", "ledger_python", "bemind_command", "bemind_data_home", "state_dir", "model", "enabled"}
-    optional = {"request_timeout_seconds", "idle_seconds", "read_result_chars", "cache_ttl_seconds"}
+    optional = {"request_timeout_seconds", "idle_seconds", "read_result_chars", "cache_ttl_seconds",
+                "embed_threads", "embed_threads_policy"}
     require(isinstance(value, dict) and required <= value.keys() and not value.keys() - required - optional, "invalid_settings")
     require(value["schema"] == 1 and value["model"] == MODEL and type(value["enabled"]) is bool, "invalid_settings")
+    if "embed_threads" in value or "embed_threads_policy" in value:
+        require(type(value.get("embed_threads")) is int and 1 <= value["embed_threads"] <= 32
+                and value.get("embed_threads_policy") in ("auto", "explicit"), "invalid_settings")
     require(isinstance(value["owner"], str) and re.fullmatch(r"[A-Za-z0-9_-]{8,128}", value["owner"]), "invalid_owner")
     for key in ("store", "ledger_python", "bemind_data_home", "state_dir"):
         require(isinstance(value[key], str) and Path(value[key]).is_absolute(), "invalid_settings")
@@ -828,10 +834,12 @@ class Frontend:
         return self.send(self.ensure(), action, arguments)
 
 
-def store_preflight(store):
+def store_preflight(store, *, allow_uninitialized=False):
     # Metadata snapshot only; request-time backend checks remain authoritative.
     try:
-        safe_path(store, private=True, directory=True)
+        safe_path(store, private=True, directory=True, missing=allow_uninitialized)
+        if allow_uninitialized and not store.exists():
+            return
     except (GatewayError, OSError):
         raise GatewayError("store_directory_needs_attention") from None
     try:
@@ -843,9 +851,23 @@ def store_preflight(store):
     else:
         raise GatewayError("store_recovery_required")
     try:
-        safe_path(store / "memory.db", private=True)
-    except (GatewayError, OSError):
+        database = store / "memory.db"
+        safe_path(database, private=True, missing=allow_uninitialized)
+        if allow_uninitialized and not database.exists():
+            require(not any(store.iterdir()), "store_database_needs_attention")
+            return
+        check_stat(database.lstat())
+    except (GatewayError, OSError, ValueError):
         raise GatewayError("store_database_needs_attention") from None
+    try:
+        for path in store.iterdir():
+            try:
+                info = path.lstat()
+            except FileNotFoundError:
+                continue  # A transient WAL/SHM may disappear during indexing.
+            check_stat(info, directory=stat.S_ISDIR(info.st_mode))
+    except (OSError, ValueError):
+        raise GatewayError("store_entry_needs_attention") from None
 
 
 def preflight(path):

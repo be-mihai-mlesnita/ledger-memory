@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "upstream_sha256": "6ff85f5f0a90afd7dcdd97d10af0fcbaad8845448cf2dac67dabc6564ed35934",
+  "core_version": "0.3.0rc6",
+  "distribution_revision": "bemind-runtime-1",
+  "archive_root": "ledger-memory",
+  "member_count": 141,
+  "document_sha256": [
+    "a95770e77ff3cd7a4d9a11942c35a1b7226d8ab922019a76bc33f4b677a961ea",
+    "d8cf56d3c3f019ec2c5c91d93394f45b2e479ae1442280a1e9b3d41a97dbe20c",
+    "20b6164b0bd78d0e5d1cb44e97fbc11ab1118543bb6c7154b3b6734ebafa3f61",
+    "235d61ac2385b620fa15f3548f50a595cd5eecb54e81570c9d9490d789ecb596",
+    "a4db3dfe40219f534247a6546d869b2b7977afc1bb3308681f94c2a24d95d4f9",
+    "2c893bdbee265868e00800b566ebeabcf7feee3d7ddb07a687dbdf02d7ac40a7"
+  ],
+  "tests_prefix": "tests/",
+  "tests_count": 33,
+  "target": {
+    "path": "src/ledger_memory/db_packaging.py",
+    "sha256": "21f3a9ca7a4ccbbc2f6725cca9fccd3cac19238e29afdda9416408ce29ab845c",
+    "line_number": 253,
+    "line_sha256": "a5b1d4caed5677d1cfb84c4e8bd83b8e256d78801e55114f931dd76980ba8d2b",
+    "replacement_line": "                f\"refusing to restore over {output_db_path}: another process is using it (an operation did not finish within {busy_wait_seconds:g} s); stop processes using this memory and retry\"\n"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "repository": "be-mihai-mlesnita/ledger-memory",
+  "ready": false,
+  "reason": "Publication pending: an approved, publication-audited kit with an exact tag, commit and SHA-256 is required.",
+  "platform": "darwin",
+  "architectures": ["arm64", "x86_64"],
+  "version": "0.3.0-rc6",
+  "tag": "bemind-mac-setup-1",
+  "asset": "bemind-ledger-memory-0.3.0-rc6-mac-setup-1.zip",
+  "sha256": "601c2dc589c720b8510161bf35cf5cf65c3d0ab42cbd3ccc6e6b662fa989e3a5",
+  "kit_commit": null,
+  "layout": "root"
+}

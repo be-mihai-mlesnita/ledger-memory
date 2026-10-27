@@ -94,6 +94,28 @@ def test_default_luna_and_scoped_package(luna):
         assert Path(r["gateway"]["settings"]).stat().st_mode & 0o077 == 0
 
 
+def test_memory_write_allow_persists_across_upgrade_and_respects_denials(luna):
+    luna.args.memory_write = "allow"
+    assert "write to allow" in d.deploy(luna.args)
+    assert config(luna)["permission"]["memory_write"] == "allow"
+    assert config(luna)["agent"]["plan"]["permission"]["memory_write"] == "deny"
+    assert receipt(luna)["memory_write_policy"] == "allow"
+    luna.args.memory_write = None          # an upgrade without the flag keeps the choice
+    d.deploy(luna.args)
+    assert config(luna)["permission"]["memory_write"] == "allow"
+    luna.args.memory_write = "ask"         # and it can be switched back explicitly
+    d.deploy(luna.args)
+    assert config(luna)["permission"]["memory_write"] == "ask"
+    assert receipt(luna)["memory_write_policy"] == "ask"
+
+
+def test_memory_write_allow_never_overrides_existing_user_denial(luna):
+    put_config(luna, '{"permission":{"memory_*":"deny"}}', "config.json")
+    luna.args.memory_write = "allow"
+    d.deploy(luna.args)
+    assert config(luna)["permission"]["memory_write"] == "deny"
+
+
 def test_migration_exact_round_trip_and_no_old_runtime_ownership(luna):
     original, agents, agents_before, old_rules = migrate(luna)
     d.deploy(luna.args)
@@ -229,7 +251,7 @@ def test_changed_managed_fields_stop_before_commands(luna, changed):
         path.write_text(d.jsonc_edit.set_value(path.read_text(), keys[changed], "edited"))
     else:
         path = Path({"rules": r["instruction"], "agents": r["agents"]["path"], "settings": r["gateway"]["settings"]}[changed])
-        path.write_bytes(path.read_bytes().replace(b"Follow", b"Edited") if changed == "agents" else path.read_bytes() + b" ")
+        path.write_bytes(path.read_bytes().replace(b"Shared memory rules", b"Edited memory rules") if changed == "agents" else path.read_bytes() + b" ")
     before = path.read_bytes()
     calls = len(luna.calls)
     for action in (lambda: d.deploy(luna.args), lambda: uninstall(luna)):
@@ -417,7 +439,7 @@ def test_real_gateway_control_commands_with_synthetic_settings_only(luna, monkey
     (luna.source / "memory_gateway.py").write_bytes(source.read_bytes())
     (luna.source / "gateway_backend_contract.py").write_text("\n".join(
         "def " + name + "(*a, **k): pass" for name in
-        ("validate_write", "write_hash", "request_artifact", "receipt_path", "knowledge_fingerprint", "store_session", "store_identity")))
+        ("validate_write", "write_hash", "request_artifact", "receipt_path", "knowledge_fingerprint", "store_session", "store_identity", "check_stat")))
     def native_controls(command, cwd, env, **kwargs):
         if "--settings" not in command:
             return luna.fake_run(command, cwd, env, **kwargs)

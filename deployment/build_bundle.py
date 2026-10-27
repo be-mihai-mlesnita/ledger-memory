@@ -1,4 +1,4 @@
-"""Package only generic deployment code plus the unchanged verified rc3 release."""
+"""Package generic deployment code with the verified configured core release."""
 from __future__ import annotations
 
 import argparse
@@ -16,9 +16,10 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from bemind_deploy import ARCHIVE_NAME, verified_archive
 
-NAME = "bemind-ledger-memory-0.3.0-rc3-deployment.zip"
+NAME = "bemind-" + ARCHIVE_NAME.removesuffix(".zip") + "-deployment.zip"
 FILES = ["install.sh", "uninstall.sh", "run.sh", "install.ps1", "uninstall.ps1", "run.ps1",
-         "bemind_deploy.py", "jsonc_edit.py", "MEMORY-RULES.md", "README.md", "VALIDATION.md",
+         "bemind_deploy.py", "jsonc_edit.py", "manage.py", "bootstrap_verify.py",
+         "MEMORY-RULES.md", "README.md", "VALIDATION.md",
          "gateway/memory_gateway.py", "gateway/ledger_backend.py",
          "gateway/gateway_backend_contract.py", "gateway/worker_guard.mjs"]
 
@@ -58,10 +59,13 @@ def publish(path: Path, blob: bytes):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--release", type=Path, default=HERE.parent / "builds" / ARCHIVE_NAME)
+    parser.add_argument("--release", type=Path, default=HERE.parent / "builds" / "runtime" / ARCHIVE_NAME)
     parser.add_argument("--output", type=Path, action="append", required=True)
     args = parser.parse_args()
     release, release_hash, version = verified_archive(args.release)
+    expected_version = ARCHIVE_NAME.removeprefix("ledger-memory-").removesuffix(".zip").replace("-rc", "rc")
+    if version != expected_version:
+        raise RuntimeError("Release version differs from the configured deployment version")
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for relative in FILES:

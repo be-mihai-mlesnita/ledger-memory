@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jsonc_edit
 
 HERE = Path(__file__).resolve().parent
-ARCHIVE_NAME = "ledger-memory-0.3.0-rc3.zip"
+ARCHIVE_NAME = "ledger-memory-0.3.0-rc6.zip"
 MAX_FILES = 20000
 MAX_BYTES = 512 * 1024 * 1024
 MARKER = ".bemind-deployment.json"
@@ -88,6 +88,59 @@ Store: `{{STORE}}`. CLI: `{{CLI}}`.
 
 class DeployError(RuntimeError):
     """Safe, content-free message suitable for the terminal."""
+
+
+def embed_threads(value):
+    """CLI selection; booleans and non-integral values are never thread counts."""
+    if value == "auto":
+        return value
+    if type(value) is str and re.fullmatch(r"[0-9]+", value):
+        value = int(value)
+    if type(value) is not int or not 1 <= value <= 32:
+        raise argparse.ArgumentTypeError("embed threads must be auto or an integer from 1 to 32")
+    return value
+
+
+def validate_thread_selection(value):
+    present = {"embed_threads", "embed_threads_policy"} & value.keys()
+    if present and (len(present) != 2 or type(value.get("embed_threads")) is not int
+                    or not 1 <= value["embed_threads"] <= 32
+                    or value.get("embed_threads_policy") not in ("auto", "explicit")):
+        raise ValueError("Invalid stored embedding thread selection.")
+
+
+def automatic_embed_threads():
+    for name in ("process_cpu_count", "sched_getaffinity", "cpu_count"):
+        function = getattr(os, name, None)
+        if not callable(function):
+            continue
+        try:
+            if name == "sched_getaffinity":
+                affinity = function(0)
+                count = (len(affinity) if isinstance(affinity, (set, frozenset))
+                         and all(type(cpu) is int and cpu >= 0 for cpu in affinity) else None)
+            else:
+                count = function()
+        except (OSError, TypeError, ValueError, NotImplementedError):
+            continue
+        if type(count) is int and count > 0:
+            return min(32, max(1, count // 3))
+    return 1
+
+
+def resolve_thread_selection(requested, receipt=None):
+    if requested is None and receipt:
+        validate_thread_selection(receipt)
+        if "embed_threads" in receipt:
+            return {key: receipt[key] for key in ("embed_threads", "embed_threads_policy")}
+    requested = "auto" if requested is None else embed_threads(requested)
+    return {"embed_threads": automatic_embed_threads() if requested == "auto" else requested,
+            "embed_threads_policy": "auto" if requested == "auto" else "explicit"}
+
+
+THREAD_RESTART_NOTE = ("Embedding thread selection applies to newly started shared model workers; "
+                       "an already-running shared worker keeps its old count until a safe restart. "
+                       "No shared model worker was force-stopped or retuned.")
 
 
 class ProcessCleanupError(DeployError):
@@ -270,6 +323,10 @@ def load_receipt(path: Path) -> dict | None:
                 or any(not isinstance(v, str) or not v for v in entry["command"])):
             raise ValueError()
         mode = receipt.get("memory_mode", "direct")
+        validate_thread_selection(receipt)
+        if "memory_write_policy" in receipt and (type(receipt["memory_write_policy"]) is not str
+                or receipt["memory_write_policy"] not in ("ask", "allow")):
+            raise ValueError()
         if mode not in ("direct", "luna") or (receipt["schema"] == 1 and mode != "direct"):
             raise ValueError()
         if receipt["schema"] == 2:
@@ -406,8 +463,8 @@ def stop_process_tree(process: subprocess.Popen, *, new_session=False) -> None:
         raise ProcessCleanupError(process.pid) from None
 
 
-def run_process(command, *, cwd, env, stdout, stderr, check=False, timeout=1200):
-    process = subprocess.Popen(command, cwd=cwd, env=env, stdout=stdout, stderr=stderr,
+def run_process(command, *, cwd, env, stdout, stderr, check=False, timeout=1200, stdin=None):
+    process = subprocess.Popen(command, cwd=cwd, env=env, stdin=stdin, stdout=stdout, stderr=stderr,
                                 start_new_session=os.name != "nt",
                                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0)
     try:
@@ -489,6 +546,8 @@ def runtime_paths(receipt: dict, app: Path) -> list[Path]:
         if (receipt["entry"]["command"] != [str(expected), "serve"] or not isinstance(environment, dict)
                 or environment.get("LEDGER_HOME") != receipt["store"]):
             raise DeployError("Receipt direct command/store is outside its owned runtime contract.")
+        if "embed_threads" in receipt and environment.get("LEDGER_EMBED_THREADS") != str(receipt["embed_threads"]):
+            raise DeployError("Receipt direct embedding thread setting does not match its selection.")
     return paths
 
 
@@ -906,9 +965,14 @@ def gateway_control(receipt, action, store):
     if data is None or digest(data) != gateway["settings_hash"]:
         raise DeployError("Managed gateway settings were edited or removed; refusing runtime control.")
     obj = parse_config(data)
+    try:
+        validate_thread_selection(obj)
+    except ValueError:
+        raise DeployError("Invalid managed gateway embedding thread selection.") from None
     if (obj.get("owner") != receipt["owner"] or obj.get("store") != str(store)
             or obj.get("ledger_python") != str(runtime_python(runtime))
-            or obj.get("state_dir") != gateway["state_dir"] or obj.get("model") != LUNA_MODEL):
+            or obj.get("state_dir") != gateway["state_dir"] or obj.get("model") != LUNA_MODEL
+            or any(obj.get(key) != receipt.get(key) for key in ("embed_threads", "embed_threads_policy"))):
         raise DeployError("Gateway settings ownership mismatch.")
     if not runtime_python(runtime).is_file() or not (runtime / "gateway/memory_gateway.py").is_file():
         raise DeployError("Owned gateway runtime is unavailable; preserve it for recovery.")
@@ -935,6 +999,7 @@ def build_runtime(args, app, store, state, owner, archive_data, version, uv, ca)
     atomic(runtime / MARKER, encoded({"owner": owner}), None)
     cli = runtime / ".venv" / ("Scripts/ledger.exe" if os.name == "nt" else "bin/ledger")
     env = child_env(store, runtime, ca)
+    env["LEDGER_EMBED_THREADS"] = str(args._thread_selection["embed_threads"])
     try:
         extract(archive_data, runtime)
         run([uv, "--no-config", "sync", "--frozen", "--extra", "semantic", "--no-dev",
@@ -1072,6 +1137,14 @@ def deploy_managed(args, receipt, receipt_before, receipt_path, chosen, snapshot
         settings_before = read_bytes(settings)
         if settings_before is None or digest(settings_before) != gateway["settings_hash"]:
             raise DeployError("Managed gateway settings were edited; reconcile them before continuing.")
+        settings_obj = parse_config(settings_before)
+        try:
+            validate_thread_selection(settings_obj)
+        except ValueError:
+            raise DeployError("Invalid managed gateway embedding thread selection.") from None
+        if gateway == previous_gateway and any(settings_obj.get(key) != receipt.get(key)
+                for key in ("embed_threads", "embed_threads_policy")):
+            raise DeployError("Gateway and receipt embedding thread selections differ.")
         snapshots[settings] = settings_before
         if gateway == previous_gateway and installed:
             disabled_data = encoded({**parse_config(settings_before), "enabled": False})
@@ -1129,8 +1202,8 @@ def deploy_managed(args, receipt, receipt_before, receipt_path, chosen, snapshot
         return "Memory uninstalled. All memory, backups, models, gateway write receipts, worker history and authentication files preserved."
 
     archive_data, sha, version = verified_archive(Path(args.archive).expanduser())
-    uv = shutil.which("uv")
-    if uv is None:
+    uv = getattr(args, "_uv_command", None) or shutil.which("uv")
+    if uv is None and not args._skip_prerequisites:
         raise DeployError("uv is required. Install uv separately with your approved package manager; then retry.")
     ca = Path(args.ca_bundle).expanduser().resolve() if args.ca_bundle else None
     if ca and not ca.is_file():
@@ -1169,7 +1242,7 @@ def deploy_managed(args, receipt, receipt_before, receipt_path, chosen, snapshot
         if not candidate:
             candidate = str(Path.home() / ".bemind/bin" / ("bemind.exe" if os.name == "nt" else "bemind"))
         bemind = Path(candidate).expanduser().absolute()
-        if not bemind.is_file() or os.name != "nt" and not os.access(bemind, os.X_OK):
+        if (not bemind.is_file() or os.name != "nt" and not os.access(bemind, os.X_OK)) and not args._skip_prerequisites:
             raise DeployError("BeMind executable not found; supply --bemind-command PATH.")
         source = HERE / "gateway"
         if source.is_dir():
@@ -1245,7 +1318,10 @@ def deploy_managed(args, receipt, receipt_before, receipt_path, chosen, snapshot
             set_field(chosen, ["permission"], {"*": permission})
         set_field(chosen, ["permission", "ledger_*"], "deny")
         set_field(chosen, ["permission", "memory_read"], policy("memory_read", "allow"))
-        set_field(chosen, ["permission", "memory_write"], policy("memory_write", "ask"))
+        # The installer default is "ask"; an explicit --memory-write choice persists in the receipt.
+        # A stronger pre-existing user policy (deny/ask) still wins over "allow".
+        write_default = getattr(args, "memory_write", None) or (receipt.get("memory_write_policy") if receipt else None) or "ask"
+        set_field(chosen, ["permission", "memory_write"], policy("memory_write", write_default))
         plan = parse_config(texts[chosen].encode()).get("agent", {})
         if not isinstance(plan, dict) or not isinstance(plan.get("plan", {}), dict):
             raise DeployError("agent.plan must be an object; refusing broad agent edits.")
@@ -1299,7 +1375,7 @@ def deploy_managed(args, receipt, receipt_before, receipt_path, chosen, snapshot
         settings = gateway_dir / ("settings-" + generation + ".json")
         settings_data = encoded({"schema": 1, "owner": owner, "store": str(store), "ledger_python": str(runtime_python(runtime)),
             "bemind_command": [str(bemind)], "bemind_data_home": str(Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")).expanduser().absolute()),
-            "state_dir": str(private_state), "model": LUNA_MODEL, "enabled": True,
+            "state_dir": str(private_state), "model": LUNA_MODEL, "enabled": True, **args._thread_selection,
             "request_timeout_seconds": 180, "idle_seconds": 300, "read_result_chars": 6000, "cache_ttl_seconds": 60})
         gateway = {"settings": str(settings), "settings_hash": digest(settings_data), "runtime": str(runtime), "state_dir": str(private_state)}
         settings_change = [(settings, None, settings_data)]
@@ -1312,7 +1388,8 @@ def deploy_managed(args, receipt, receipt_before, receipt_path, chosen, snapshot
         set_field(chosen, ["mcp", "memory"], entry)
     else:
         entry = {"type": "local", "command": [str(cli), "serve"], "enabled": True,
-                 "environment": {"LEDGER_HOME": str(store), "LEDGER_AGENT_NAME": "bemind"}, "timeout": 180000}
+                 "environment": {"LEDGER_HOME": str(store), "LEDGER_AGENT_NAME": "bemind",
+                                 "LEDGER_EMBED_THREADS": str(args._thread_selection["embed_threads"])}, "timeout": 180000}
         if env.get("LEDGER_CA_BUNDLE"):
             entry["environment"]["LEDGER_CA_BUNDLE"] = env["LEDGER_CA_BUNDLE"]
         set_field(chosen, ["mcp", "ledger"], entry)
@@ -1323,19 +1400,27 @@ def deploy_managed(args, receipt, receipt_before, receipt_path, chosen, snapshot
         text = baseline[path].decode()
         start, end = section(text, agents["section"])
         newline = "\r\n" if "\r\n" in text[start:end] else "\n"
-        block = newline.join([agents["section"], "", f"Follow the shared memory rules in `{rules}`.",
-                              "Honor existing model prechecks and read/write permissions.", "", ""])
+        # The rules file is already loaded through the global `instructions` list. Do not ask
+        # models to open it: reading a file outside the project triggers a directory prompt.
+        block = newline.join([agents["section"], "",
+                              "Shared memory rules are already loaded as global instructions; do not open the rules file.",
+                              "Use the `memory_read`/`memory_write` tools. Honor existing model prechecks and read/write permissions.",
+                              "", ""])
         manifests.append({"path": str(path), "kind": "agents", "before": text,
                           "after": text[:start] + block + text[end:], "managed": []})
     rules_after = template.decode().replace("{{STORE}}", str(store)).replace("{{CLI}}", str(cli)).encode()
     if previous_gateway:
         gateway_history.append(previous_gateway)
     new_receipt = {"schema": 2, "memory_mode": mode, "owner": owner, "status": "installed", "entry": entry,
+                   **args._thread_selection,
                    "config": str(chosen), "app_root": str(app), "store": str(store),
                    "runtimes": [*(receipt["runtimes"] if receipt else []), str(runtime)],
                    "archive_hash": sha, "rules_hash": digest(rules_after), "instruction": str(rules),
                    "instruction_owned": True, "permission_owned": True, "gateway": gateway, "gateway_history": gateway_history,
                    "manifest": manifests, "agents": agents, "replace_instructions": replacements}
+    if mode == "luna":
+        new_receipt["memory_write_policy"] = (getattr(args, "memory_write", None)
+                                              or (receipt.get("memory_write_policy") if receipt else None) or "ask")
     validate_manifest(new_receipt, state)
     changes = [*disabled_changes, *settings_change, *receipt_copies, (rules, rules_before, rules_after),
                *((Path(m["path"]), snapshots[Path(m["path"])], m["after"].encode()) for m in manifests),
@@ -1351,7 +1436,9 @@ def deploy_managed(args, receipt, receipt_before, receipt_path, chosen, snapshot
             return "Base installation succeeded. Semantic process cleanup failed; runtime retained. Review pending.json."
         except Exception:
             return "Base installation succeeded. Semantic setup failed; keyword memory remains installed."
-    return f"Installation succeeded ({mode}); restart BeMind to load memory. Read defaults to allow, write to ask; existing denials are preserved."
+    write_note = f"write to {new_receipt.get('memory_write_policy', 'ask')}" if mode == "luna" else "write to ask"
+    return (f"Installation succeeded ({mode}); restart BeMind to load memory. Read defaults to allow, {write_note}; existing denials are preserved. "
+            + THREAD_RESTART_NOTE)
 
 
 def deployment_mode(args, receipt):
@@ -1362,17 +1449,38 @@ def deployment_mode(args, receipt):
     return mode
 
 
-def deploy(args) -> str:
+def luna_store_preflight(store):
+    # Import only the kit's stdlib-only checker, never an installed core/runtime.
+    from gateway.memory_gateway import GatewayError, store_preflight
+
+    try:
+        store_preflight(store, allow_uninitialized=True)
+    except (GatewayError, OSError) as exc:
+        code = exc.code if isinstance(exc, GatewayError) else "store_metadata_unavailable"
+        raise DeployError(f"Luna store preflight refused ({code}). Existing store directories and files must be "
+                          "owned by the current user and owner-only (0700 directories, 0600 files). "
+                          "Review the store/recovery state explicitly; no permissions were changed.") from None
+
+
+def deploy(args, *, check_prerequisites=True) -> str:
+    # Do not mutate the caller's selection: repeated upgrades must distinguish an
+    # omitted flag from explicit auto. The interactive frontend pins its preview.
+    args = argparse.Namespace(**vars(args))
+    if not check_prerequisites and not args.dry_run:
+        raise DeployError("Prerequisite checks may only be deferred during read-only preflight.")
+    args._skip_prerequisites = not check_prerequisites
     config_dir, app, store = (safe_path(Path(value)) for value in (args.config_dir, args.app_root, args.store))
     state = config_dir / "ledger-memory-deployment"
     for path in (config_dir, app, store, state):
         safe_path(path)
         if path.exists() and not path.is_dir():
             raise DeployError("Configuration, application and store paths must be directories.")
-    if os.name == "nt" and args.command == "install":
-        # Read-only platform preflight, before creating state or running commands.
-        # Mode is resolved again under the installer lock in case the receipt changes.
-        deployment_mode(args, load_receipt(state / "receipt.json"))
+    if args.command == "install":
+        # Validate receipt, platform and existing Luna privacy before any state
+        # creation or prerequisites. Repeat under the lock before building runtime.
+        mode = deployment_mode(args, load_receipt(state / "receipt.json"))
+        if mode == "luna":
+            luna_store_preflight(store)
     cache = worker_root()
     for first, second in ((config_dir, app), (config_dir, store), (app, store), (app, cache)):
         if first == second or first in second.parents or second in first.parents:
@@ -1391,9 +1499,19 @@ def deploy(args) -> str:
         receipt_path = state / "receipt.json"
         receipt_before = read_bytes(receipt_path)
         receipt = load_receipt(receipt_path)
+        if args.command == "install":
+            selection = getattr(args, "_thread_selection", None)
+            if selection is None:
+                selection = resolve_thread_selection(getattr(args, "embed_threads", None), receipt)
+            validate_thread_selection(selection)
+            if "embed_threads" not in selection:
+                raise DeployError("Missing resolved embedding thread selection.")
+            args._thread_selection = selection
         if receipt and (receipt["app_root"] != str(app) or receipt["store"] != str(store)):
             raise DeployError("Receipt application/store paths differ; use the original deployment options.")
         mode = deployment_mode(args, receipt)
+        if args.command == "install" and mode == "luna":
+            luna_store_preflight(store)
         chosen, snapshots = config_state(config_dir, receipt, migrate=getattr(args, "migrate_existing_ledger", False), store=store)
         old = snapshots[chosen]
         text = (old or b"{}\n").decode("utf-8")
@@ -1418,8 +1536,8 @@ def deploy(args) -> str:
         if rules_before is not None and (not receipt or digest(rules_before) != receipt["rules_hash"]):
             raise DeployError("Rules file is unmanaged or edited; preserve it and reconcile before upgrading.")
         archive_data, sha, version = verified_archive(Path(args.archive).expanduser())
-        uv = shutil.which("uv")
-        if uv is None:
+        uv = getattr(args, "_uv_command", None) or shutil.which("uv")
+        if uv is None and not args._skip_prerequisites:
             raise DeployError("uv is required. Install uv separately with your approved package manager "
                               "(Homebrew: brew install uv; Windows: winget install --id=astral-sh.uv -e), "
                               "or follow https://docs.astral.sh/uv/getting-started/installation/; then retry.")
@@ -1443,7 +1561,8 @@ def deploy(args) -> str:
         owner = receipt["owner"] if receipt else str(uuid.uuid4())
         runtime, cli, env = build_runtime(args, app, store, state, owner, archive_data, version, uv, ca)
         entry = {"type": "local", "command": [str(cli), "serve"], "enabled": True,
-                 "environment": {"LEDGER_HOME": str(store), "LEDGER_AGENT_NAME": "bemind"}, "timeout": 180000}
+                 "environment": {"LEDGER_HOME": str(store), "LEDGER_AGENT_NAME": "bemind",
+                                 "LEDGER_EMBED_THREADS": str(args._thread_selection["embed_threads"])}, "timeout": 180000}
         if env.get("LEDGER_CA_BUNDLE"):
             entry["environment"]["LEDGER_CA_BUNDLE"] = env["LEDGER_CA_BUNDLE"]
         text = jsonc_edit.set_value(text, ["mcp", "ledger"], entry)
@@ -1460,6 +1579,7 @@ def deploy(args) -> str:
             own_permission = True
         rules_after = template.decode("utf-8").replace("{{STORE}}", str(store)).replace("{{CLI}}", str(cli)).encode()
         new_receipt = {"schema": 1, "memory_mode": "direct", "owner": owner, "status": "installed", "entry": entry,
+                       **args._thread_selection,
                        "config": str(chosen), "app_root": str(app), "store": str(store),
                        "runtimes": [*(receipt["runtimes"] if receipt else []), str(runtime)],
                        "archive_hash": sha, "rules_hash": digest(rules_after),
@@ -1479,7 +1599,7 @@ def deploy(args) -> str:
                 return "Base installation succeeded. Semantic process cleanup failed; runtime retained. Review pending.json before retrying."
             except Exception:
                 return "Base installation succeeded. Semantic setup failed; keyword memory remains installed. Retry semantic setup explicitly."
-        return "Installation succeeded; restart BeMind yourself to load ledger. Existing memory was preserved."
+        return "Installation succeeded; restart BeMind yourself to load ledger. Existing memory was preserved. " + THREAD_RESTART_NOTE
 
 
 def uninstall(args, receipt, receipt_before, receipt_path, chosen, snapshots,
@@ -1522,11 +1642,12 @@ def uninstall(args, receipt, receipt_before, receipt_path, chosen, snapshots,
         return "Ledger uninstalled. All memory, histories, models, backups and recovery state preserved."
 
 
-def parser() -> argparse.ArgumentParser:
+def parser(command_name=None) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
-    sub = p.add_subparsers(dest="command", required=True)
-    for name in ("install", "uninstall"):
-        command = sub.add_parser(name)
+    sub = p.add_subparsers(dest="command", required=True) if command_name is None else None
+    for name in (("install", "uninstall") if command_name is None else (command_name,)):
+        command = sub.add_parser(name) if sub else p
+        command.set_defaults(command=name)
         command.add_argument("--config-dir", default=str(Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "bemind"))
         command.add_argument("--app-root", default=str(Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "bemind-ledger-memory"))
         command.add_argument("--store", default=os.environ.get("LEDGER_HOME", str(Path.home() / ".ledger-memory")))
@@ -1537,6 +1658,8 @@ def parser() -> argparse.ArgumentParser:
                 default_archive = HERE.parent / "builds" / ARCHIVE_NAME
             command.add_argument("--archive", default=str(default_archive))
             command.add_argument("--python", default="3.13")
+            command.add_argument("--embed-threads", type=embed_threads, default=None, metavar="N|auto",
+                                 help="1..32 or auto (one third of usable logical CPUs, capped at 32). Upgrades preserve the stored selection unless overridden.")
             command.add_argument("--semantic", action="store_true")
             command.add_argument("--model-dir")
             command.add_argument("--ca-bundle")
@@ -1548,6 +1671,9 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--replace-instruction", action="append", default=[], metavar="PATH")
             command.add_argument("--agents-file", metavar="PATH")
             command.add_argument("--agents-section", help="Exact Markdown heading of the explicitly selected legacy block.")
+            command.add_argument("--memory-write", choices=("ask", "allow"), default=None,
+                                 help="Luna mode: approval policy for memory_write (default ask; upgrades keep the previous choice). "
+                                      "Existing user denials still win; plan-agent writes stay denied.")
         else:
             command.add_argument("--keep-runtime", action="store_true")
     return p

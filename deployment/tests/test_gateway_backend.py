@@ -1,7 +1,8 @@
-"""Scope/receipt/evidence integration against fake APIs and temporary real rc3 stores."""
+"""Scope/receipt/evidence integration against fake APIs and temporary real stores."""
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 import copy
+from importlib.metadata import version
 import json
 import multiprocessing
 import os
@@ -367,6 +368,124 @@ def test_archival_json_not_reinterpreted_or_truncated():
     assert backend.HISTORY_WARNING in warnings
 
 
+@pytest.mark.parametrize("mode", ["keyword (semantic search off)", "semantic"])
+@pytest.mark.parametrize("project,fields,keep", [
+    ("Juniper", {"text": "Juniper approval is NOT authorization."}, True),
+    ("Juniper", {"text": "JUNIPER approval remains disputed."}, True),
+    ("Juniper", {"text": "\uff2a\uff35\uff2e\uff29\uff30\uff25\uff32 approval"}, True),
+    ("Caf\u00e9", {"text": "Cafe\u0301 approval"}, True),
+    ("Stra\u00dfe", {"text": "STRASSE approval"}, True),
+    ("The Juniper Project", {"text": "Juniper approval"}, True),
+    ("Juniper East", {"text": "Juniper approval", "uri": "urn:test:east"}, True),
+    ("Juniper", {"uri": "urn:test:juniper:archive"}, True),
+    ("Juniper", {"project": "Juniper"}, True),
+    ("Juniper", {"provenance": {"project": "Juniper", "source": "document"}}, True),
+    ("Juniper", {"provenance": {"document_uri": "urn:test:juniper"}}, True),
+    ("Juniper", {"provenance": {"uri": "urn:test:juniper"}}, True),
+    ("Juniper", {"document_uri": "urn:test:juniper"}, True),
+    ("Juniper", {"text": '{"project":"Juniper","text":"NOT approved"}'}, True),
+    ("Juniper", {"text": "Jun approval"}, False),
+    ("Juniper", {"text": "Junipers approval"}, False),
+    ("Junipers", {"text": "Juniper approval"}, False),
+    ("Juniper", {"text": "SuperJuniper approval"}, False),
+    ("Juniper East", {"text": "Juniper approval"}, False),
+    ("Juniper East", {"text": "East approval"}, False),
+    ("Juniper", {"text": "Project approval", "query": "Juniper approval"}, False),
+    ("Juniper", {"provenance": {"query": "Juniper", "author": "Juniper"}}, False),
+    ("Juniper", {"provenance": {"project": ["Juniper"]}}, False),
+    ("Juniper", {"warnings": ["Juniper: rejected-record-warning"]}, False),
+    ("HR", {"text": "HR approval"}, True),
+    ("HR", {"text": "\uff28\uff32 approval"}, True),
+    ("HR", {"text": "sharepolicy approval"}, False),
+    ("HR", {"text": "thread approval"}, False),
+    ("HR", {"text": "HRS approval"}, False),
+    ("QA", {"text": "QA approval"}, True),
+    ("QA", {"text": "Qatar approval"}, False),
+    ("HR QA", {"text": "HR QA approval"}, True),
+    ("HR QA", {"text": "HR approval"}, False),
+    ("X", {"text": "X approval"}, True),
+    ("X", {"text": "Extra approval"}, False),
+    ("global", {"text": "Other project approval"}, True),
+    ("\uff27\uff2c\uff2f\uff22\uff21\uff2c", {"text": "Other project approval"}, True),
+])
+def test_document_filter_before_capture_preserves_whole_evidence(setup, fake, monkeypatch, mode, project, fields, keep):
+    instance, state, _, _ = setup
+    record = {"document_id": 7, "chunk_id": 8, "text": "Synthetic approval", **fields}
+    response = {"query": project + " approval", "mode": mode, "results": [record],
+                "semantic_unavailable_reason": "index unavailable"}
+    before = copy.deepcopy(response)
+    def search(**args):
+        fake.calls.append(("search_documents", args))
+        return response
+    monkeypatch.setattr(fake, "search_documents", search)
+    scope = scope_for(setup, purpose="history", project=project, query=project + " approval")
+    result = instance.call("search_documents", {"query": project + " approval"})
+    captured = contract.load_json(contract.request_artifact(state, scope["request_id"]))
+    assert response == before
+    assert result["pool"] == captured["pool"]
+    assert result["warnings"] == captured["warnings"]
+    assert len(fake.calls) == 1 and fake.calls[0][1]["limit"] == 2
+    assert captured["calls"] == 1 and captured["outcomes"] == [{"tool": "search_documents", "ok": True}]
+    assert backend.HISTORY_WARNING in result["warnings"]
+    assert {"semantic_unavailable_reason": "index unavailable"} in result["warnings"]
+    if keep:
+        assert result["pool"]["chunk:8"] == {**record, "ref": "chunk:8", "type": "chunk", "id": 8}
+        assert not any("missing project words" in str(w) for w in result["warnings"])
+    else:
+        assert result["pool"] == {} and result["refs"] == []
+        assert any("incomplete:" in str(w) and "already-limited" in str(w) for w in result["warnings"])
+        assert "rejected-record-warning" not in json.dumps([result, captured])
+        assert record["text"] not in json.dumps([result, captured])
+
+
+@pytest.mark.parametrize("fields,missing", [
+    ({"known_at": "2026-01-01", "source": "observed", "still_current": True}, []),
+    ({"known_at": "2026-01-01", "source": "inferred", "still_current": False, "superseded_by": 2}, []),
+    ({"known_at": None, "source": "unclassified", "still_current": True, "superseded_by": None}, []),
+    ({}, ["known_at", "source", "still_current"]),
+    ({"source": "observed", "still_current": True}, ["known_at"]),
+    ({"known_at": "2026-01-01", "still_current": True}, ["source"]),
+    ({"known_at": None, "source": "unclassified"}, ["still_current"]),
+    ({"known_at": "2026-01-01", "source": "observed", "still_current": False}, ["superseded_by"]),
+])
+def test_asof_field_aware_warnings_and_values_preserved(setup, fake, monkeypatch, fields, missing):
+    instance, state, _, _ = setup
+    record = {"id": 1, "statement": "Historical claim, NOT authorization", "kind": "note", **fields}
+    response = {"as_of": "2026-01-01", "beliefs": [record]}
+    before = copy.deepcopy(response)
+    def as_of(**args):
+        fake.calls.append(("as_of", args))
+        return response
+    monkeypatch.setattr(fake, "as_of", as_of, raising=False)
+    scope = scope_for(setup, purpose="history")
+    result = instance.call("beliefs_as_of", {"when": "2026-01-01"})
+    captured = contract.load_json(contract.request_artifact(state, scope["request_id"]))
+    assert response == before
+    assert result["pool"] == captured["pool"]
+    item = result["pool"]["fact:1"]
+    assert item == {**record, "ref": "fact:1", "type": "fact", "as_of": "2026-01-01"}
+    if "still_current" in fields:
+        assert item["still_current"] is fields["still_current"]
+        assert any("absence of disputes" in str(w) for w in result["warnings"])
+    assert "status" not in item
+    assert backend.HISTORY_WARNING in result["warnings"]
+    assert not any("rc3 as_of" in str(w) for w in result["warnings"])
+    assert [w for w in result["warnings"] if isinstance(w, dict) and "as_of_missing_fields" in w] == (
+        [{"as_of_missing_fields": {"ref": "fact:1", "fields": missing}}] if missing else [])
+    assert fake.calls == [("as_of", {"when": "2026-01-01"})]
+
+
+def test_asof_mixed_and_empty_results_do_not_invent_capabilities():
+    pool, warnings = backend.normalize("beliefs_as_of", {"as_of": "2026-01-01", "beliefs": []})
+    assert pool == {} and warnings == [backend.HISTORY_WARNING]
+    pool, warnings = backend.normalize("beliefs_as_of", {"as_of": "2026-01-01", "beliefs": [
+        {"id": 1, "statement": "Old", "known_at": "2025-01-01", "source": "observed", "still_current": True},
+        {"id": 2, "statement": "Older"},
+    ]})
+    assert [w for w in warnings if isinstance(w, dict)] == [
+        {"as_of_missing_fields": {"ref": "fact:2", "fields": ["known_at", "source", "still_current"]}}]
+
+
 def test_history_asof_shapes_and_collisions(setup, fake, monkeypatch):
     instance, state, _, _ = setup
     scope = scope_for(setup, purpose="history")
@@ -711,17 +830,24 @@ def test_real_ledger_read_shapes(setup, real, tool):
         assert all(ref.startswith("chunk:") for ref in result["pool"])
     if tool == "beliefs_as_of":
         assert all(item["as_of"].startswith("2099") for item in result["pool"].values())
+        missing = [w for w in result["warnings"] if isinstance(w, dict) and "as_of_missing_fields" in w]
+        if version("ledger-memory") == "0.3.0rc3":
+            assert len(missing) == len(result["pool"])
+        else:
+            assert not missing
+            assert all(item["still_current"] is True and item["known_at"] and item["source"]
+                       for item in result["pool"].values())
+        assert backend.HISTORY_WARNING in result["warnings"]
 
 
 @pytest.mark.parametrize("query", ["Juniper approval", "%Juniper% _approval_", "JUNIPER approval approval"])
 def test_juniper_short_keywords_find_existing_doc_under_keyword_fallback(setup, real, query):
     ledger = real[0]
     target = ledger.ingest(text="Juniper approval remains NOT granted.", uri="urn:test:juniper")
-    ledger.ingest(text="Juniper staffing plan.", uri="urn:test:unrelated-topic")
     ledger.ingest(text="Other project approval granted.", uri="urn:test:unrelated-project")
+    ledger.ingest(text="Juniper staffing plan.", uri="urn:test:unrelated-topic")
     scope = scope_for(setup, purpose="history", project="Juniper",
                       query="Juniper: What do the historical discussions say about approvals and who authorized them?")
-    assert ledger.search_documents(scope["query"], limit=2)["results"] == []
     result = setup[0].call("search_documents", {"query": query})
     assert len(result["pool"]) == 1
     hit = next(iter(result["pool"].values()))
@@ -729,6 +855,94 @@ def test_juniper_short_keywords_find_existing_doc_under_keyword_fallback(setup, 
     assert hit["text"] == "Juniper approval remains NOT granted."
     assert backend.HISTORY_WARNING in result["warnings"]
     assert any("keyword" in str(warning) for warning in result["warnings"])
+
+
+@pytest.mark.parametrize("target_text", ["Juniper approval remains NOT granted.", "Juniper staffing plan."])
+def test_real_keyword_or_cross_project_hits_never_captured(setup, real, monkeypatch, target_text):
+    from ledger_memory.api import Ledger
+    ledger = real[0]
+    other = ledger.ingest(text="Other project approval granted. unrelated-evidence-one", uri="urn:test:other")
+    third = ledger.ingest(text="Third project approval granted. unrelated-evidence-two", uri="urn:test:third")
+    target = ledger.ingest(text=target_text, uri="urn:test:juniper")
+    original = Ledger.search_documents
+    raw = []
+    def observe(self, **args):
+        assert args == {"query": "juniper approval", "limit": 2}
+        response = original(self, **args)
+        raw.append(copy.deepcopy(response))
+        return response
+    monkeypatch.setattr(Ledger, "search_documents", observe)
+    instance, state, _, _ = setup
+    scope = scope_for(setup, purpose="history", project="Juniper", query="Juniper historical approvals")
+    result = instance.call("search_documents", {"query": "Juniper approval"})
+    captured = contract.load_json(contract.request_artifact(state, scope["request_id"]))
+    assert len(raw) == 1 and "keyword" in raw[0]["mode"]
+    raw_ids = {item["document_id"] for item in raw[0]["results"]}
+    if version("ledger-memory") == "0.3.0rc3":
+        assert not raw_ids & {other["document_id"], third["document_id"]}
+    else:
+        assert other["document_id"] in raw_ids
+        assert len(raw_ids) == 2
+        assert any("already-limited" in str(w) for w in result["warnings"])
+    if "approval" in target_text:
+        assert {item["document_id"] for item in result["pool"].values()} == {target["document_id"]}
+        assert next(iter(result["pool"].values()))["text"] == target_text
+    else:
+        assert result["pool"] == {} and result["refs"] == []
+    assert captured["pool"] == result["pool"]
+    assert captured["calls"] == 1
+    assert backend.HISTORY_WARNING in result["warnings"]
+    assert "unrelated-evidence" not in json.dumps([result, captured])
+    assert "urn:test:other" not in json.dumps([result, captured])
+    assert "urn:test:third" not in json.dumps([result, captured])
+
+
+@pytest.mark.parametrize("project,query,other_text", [
+    ("HR", "HR policy", "sharepolicy guidance"),
+    ("HR", "HR policy", "thread policy guidance"),
+    ("QA", "QA policy", "Qatar policy guidance"),
+    ("HR", "HR", "thread guidance"),
+    ("QA", "QA", "Qatar guidance"),
+    ("X", "X", "Extra guidance"),
+])
+def test_real_short_project_keywords_and_substring_filter(setup, real, monkeypatch, project, query, other_text):
+    from ledger_memory.api import Ledger
+    ledger = real[0]
+    other = ledger.ingest(text=other_text, uri="urn:test:unrelated")
+    target_text = project + " policy remains NOT approved."
+    target = ledger.ingest(text=target_text, uri="urn:test:target")
+    original = Ledger.search_documents
+    raw = []
+    def observe(self, **args):
+        assert args == {"query": query.lower(), "limit": 2}
+        response = original(self, **args)
+        raw.append(copy.deepcopy(response))
+        return response
+    monkeypatch.setattr(Ledger, "search_documents", observe)
+    instance, state, _, _ = setup
+    scope = scope_for(setup, purpose="history", project=project, query=project + " policy")
+    result = instance.call("search_documents", {"query": query})
+    captured = contract.load_json(contract.request_artifact(state, scope["request_id"]))
+    assert len(raw) == 1 and "keyword" in raw[0]["mode"]
+    raw_ids = [item["document_id"] for item in raw[0]["results"]]
+    if version("ledger-memory") == "0.3.0rc3":
+        assert raw_ids == [other["document_id"], target["document_id"]]
+    elif version("ledger-memory") == "0.3.0rc4":
+        assert raw_ids == [target["document_id"]] + ([other["document_id"]] if "policy" in query else [])
+    else:
+        # rc5's FTS candidates use whole-word/prefix matches, not infix matches.
+        unrelated_terms = set(other_text.split())
+        overlaps = any(term.startswith(word.lower()) for word in query.lower().split()
+                       for term in unrelated_terms)
+        assert raw_ids == [target["document_id"]] + ([other["document_id"]] if overlaps else [])
+    assert {item["document_id"] for item in result["pool"].values()} == {target["document_id"]}
+    assert next(iter(result["pool"].values()))["text"] == target_text
+    assert captured["pool"] == result["pool"] and captured["warnings"] == result["warnings"]
+    assert captured["calls"] == 1
+    assert backend.HISTORY_WARNING in result["warnings"]
+    assert any("already-limited" in str(w) for w in result["warnings"]) == (other["document_id"] in raw_ids)
+    assert other_text not in json.dumps([result, captured])
+    assert "urn:test:unrelated" not in json.dumps([result, captured])
 
 
 def test_crash_after_database_commit_is_indeterminate_once(setup, real, monkeypatch):

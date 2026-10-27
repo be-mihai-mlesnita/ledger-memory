@@ -19,7 +19,8 @@ import time
 # Required when the controller launches with Python isolated mode (-I).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gateway_backend_contract import (
-    MAX_JSON, check_stat, directory_fd, document_query, json_bytes, load_json, receipt_path,
+    MAX_JSON, check_stat, directory_fd, document_project_words, document_query, document_words,
+    json_bytes, load_json, receipt_path,
     request_artifact, require, save_json, store_identity, store_session, text, valid_id,
     validate_store_identity, validate_write, write_hash,
 )
@@ -109,6 +110,33 @@ def warnings_from(result):
     return warnings
 
 
+def filter_document_evidence(result, project):
+    """Check returned evidence, not query echoes; project words do not grant authorization."""
+    required = document_project_words(project)
+    if not required:
+        return result
+    require(type(result) is dict and type(result.get("results")) is list, "invalid_api_result")
+    records = []
+    for record in result["results"]:
+        require(type(record) is dict, "invalid_api_result")
+        values = [record.get(key) for key in ("text", "uri", "document_uri", "project")]
+        provenance = record.get("provenance")
+        if type(provenance) is dict:
+            values.extend(provenance.get(key) for key in ("uri", "document_uri", "project"))
+        words = {word for value in values if type(value) is str for word in document_words(value)}
+        # Project words must match in full, just as in query validation, not by prefix.
+        if required <= words:
+            records.append(record)
+    omitted = len(result["results"]) - len(records)
+    if not omitted:
+        return result
+    warnings = result.get("warnings", [])
+    require(type(warnings) is list, "invalid_api_result")
+    return {**result, "results": records, "warnings": [*warnings,
+        f"incomplete: {omitted} document evidence record(s) omitted for missing project words; "
+        "filtering already-limited results may miss relevant evidence, including when none remain."]}
+
+
 def normalize(tool, result):
     """Keep returned record content and provenance intact; never synthesize a claim."""
     require(type(result) is dict, "invalid_api_result")
@@ -132,8 +160,7 @@ def normalize(tool, result):
     else:
         records = result.get("beliefs")
         require(type(result.get("as_of")) is str, "invalid_api_result")
-        warnings.extend([HISTORY_WARNING,
-                         "rc3 as_of returns statement/kind and as-of time only; source, known_at and status are unavailable."])
+        warnings.append(HISTORY_WARNING)
     require(type(records) is list, "invalid_api_result")
     for record in records:
         require(type(record) is dict, "invalid_api_result")
@@ -149,6 +176,17 @@ def normalize(tool, result):
         item = {**record, "ref": ref, "type": kind, "id": identifier}
         if tool == "beliefs_as_of":
             item["as_of"] = result["as_of"]
+            fields = ["known_at", "source", "still_current"]
+            if record.get("still_current") is False:
+                fields.append("superseded_by")
+            missing = [field for field in fields if field not in record]
+            if missing:
+                warnings.append({"as_of_missing_fields": {"ref": ref, "fields": missing}})
+            if "still_current" in record:
+                warning = ("still_current reports supersession only; it does not verify truth, "
+                           "authorization, or absence of disputes.")
+                if warning not in warnings:
+                    warnings.append(warning)
         require(ref not in pool or pool[ref] == item, "evidence_reference_conflict")
         pool[ref] = item
     return pool, warnings
@@ -189,10 +227,14 @@ class Backend:
         cfg = load_json(self.settings)
         required = {"schema", "owner", "store", "ledger_python", "bemind_command", "bemind_data_home",
                     "state_dir", "model", "enabled"}
-        optional = {"request_timeout_seconds", "idle_seconds", "read_result_chars", "cache_ttl_seconds"}
+        optional = {"request_timeout_seconds", "idle_seconds", "read_result_chars", "cache_ttl_seconds",
+                    "embed_threads", "embed_threads_policy"}
         require(type(cfg) is dict and required <= cfg.keys() and not cfg.keys() - required - optional, "invalid_settings")
         require(type(cfg["schema"]) is int and cfg["schema"] == 1 and cfg["model"] == MODEL
                 and cfg["enabled"] is True, "invalid_settings")
+        if "embed_threads" in cfg or "embed_threads_policy" in cfg:
+            require(type(cfg.get("embed_threads")) is int and 1 <= cfg["embed_threads"] <= 32
+                    and cfg.get("embed_threads_policy") in ("auto", "explicit"), "invalid_settings")
         require(type(cfg["owner"]) is str and re.fullmatch(r"[A-Za-z0-9_-]{8,128}", cfg["owner"]), "invalid_owner")
         for key in ("state_dir", "store", "ledger_python", "bemind_data_home"):
             require(type(cfg[key]) is str and Path(cfg[key]).is_absolute() and ".." not in Path(cfg[key]).parts,
@@ -247,7 +289,9 @@ class Backend:
     def store(self, cfg):
         store = Path(cfg["store"])
         # Do not let an inherited environment redirect sidecars or select another store.
-        require(not any(key.startswith("LEDGER_") and key not in GATEWAY_ENV
+        allowed = GATEWAY_ENV | ({"LEDGER_EMBED_THREADS"} if "embed_threads" in cfg
+            and os.environ.get("LEDGER_EMBED_THREADS") == str(cfg["embed_threads"]) else set())
+        require(not any(key.upper().startswith("LEDGER_") and key not in allowed
                         for key in os.environ), "unsafe_ledger_environment")
         with directory_fd(store) as parent:
             for name in os.listdir(parent):
@@ -256,6 +300,22 @@ class Backend:
             check_stat(os.stat("memory.db", dir_fd=parent, follow_symlinks=False))
             require("restore-in-progress.json" not in os.listdir(parent), "store_recovery_required")
         return store
+
+    @contextmanager
+    def core_environment(self, cfg):
+        # Held across API construction/calls: the core may spawn its shared model
+        # worker lazily. Never compute hardware policy or stop an existing worker.
+        with _THREAD_LOCK:
+            previous = os.environ.get("LEDGER_EMBED_THREADS")
+            try:
+                if "embed_threads" in cfg:
+                    os.environ["LEDGER_EMBED_THREADS"] = str(cfg["embed_threads"])
+                yield
+            finally:
+                if previous is None:
+                    os.environ.pop("LEDGER_EMBED_THREADS", None)
+                else:
+                    os.environ["LEDGER_EMBED_THREADS"] = previous
 
     def arguments(self, tool, args, scope):
         require(type(args) is dict, "invalid_arguments")
@@ -347,7 +407,7 @@ class Backend:
                 require(self.gate(cfg) == scope, "scope_changed")
                 actor = "gateway-" + hashlib.sha256((cfg["owner"] + ":" + scope["request_id"]).encode()).hexdigest()
                 # Raw API diagnostics must not reach the MCP transport or persistent logs.
-                with open(os.devnull, "w") as sink, redirect_stdout(sink), redirect_stderr(sink):
+                with self.core_environment(cfg), open(os.devnull, "w") as sink, redirect_stdout(sink), redirect_stderr(sink):
                     ledger = ledger_factory(store, actor)
                     with ledger.session():
                         require(self.gate(cfg) == scope, "scope_changed")
@@ -359,6 +419,8 @@ class Backend:
                 if receipt is not None:
                     result = compact_result(scope["operation"], result)
                 else:
+                    if tool == "search_documents":
+                        result = filter_document_evidence(result, scope.get("project", "global"))
                     artifact["warnings"].extend(warnings_from(result))
                     pool, warnings = normalize(tool, result)
                     artifact["warnings"].extend(item for item in warnings if item not in artifact["warnings"])

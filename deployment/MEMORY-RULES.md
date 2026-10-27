@@ -4,6 +4,9 @@ The global `memory` MCP server provides shared memory through a private Luna gat
 Store: `{{STORE}}`. The public tools are `memory_read` and `memory_write` (MCP
 functions `read` and `write`). Raw `ledger_*` tools are not public in this mode.
 
+These rules are already loaded into every session. Do not open this file, the store,
+or the deployment folder with file or shell tools; use only `memory_read`/`memory_write`.
+
 ## Use Memory Carefully
 
 - Follow existing mandatory session prechecks before consulting memory. These rules do

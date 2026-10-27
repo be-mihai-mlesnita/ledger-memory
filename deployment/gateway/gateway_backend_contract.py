@@ -87,30 +87,34 @@ def text(value, maximum=4000):
             and not any(ord(c) < 32 and c not in "\n\r\t" for c in value))
 
 
+def document_words(value):
+    value = unicodedata.normalize("NFKC", unicodedata.normalize("NFKC", value).casefold())
+    return "".join(char if char.isalnum() else " " for char in value).split()
+
+
+def document_project_words(project):
+    if unicodedata.normalize("NFKC", project).casefold().strip() == "global":
+        return set()
+    required = {word for word in document_words(project) if word not in {"the", "and", "for", "project"}}
+    require(required, "query_missing_project")
+    return required
+
+
 def document_query(query, approved_query, project="global"):
     """Constrain keyword fallback to approved terms, without SQL/FTS syntax."""
     text(query, 600)
     text(approved_query, 8258)
     text(project, 256)
 
-    def words(value):
-        value = unicodedata.normalize("NFKC", unicodedata.normalize("NFKC", value).casefold())
-        return "".join(char if char.isalnum() else " " for char in value).split()
-
-    project_words = words(project)
-    allowed = set(words(approved_query) + project_words)
-    requested = list(dict.fromkeys(words(query)))
+    project_words = document_words(project)
+    allowed = set(document_words(approved_query) + project_words)
+    requested = list(dict.fromkeys(document_words(query)))
     # Only singularizing a trailing plural s is supported, not arbitrary prefixes
     # ("jun" must not stand in for "Juniper", nor "app" for "approval").
     require(requested and all(word in allowed or len(word) >= 3 and word + "s" in allowed
                               for word in requested), "query_outside_scope")
-    # rc3 ignores words shorter than three characters whenever longer words exist.
-    # Never accept a project constraint that its actual keyword API would ignore.
-    informative = [word for word in requested if len(word) >= 3]
-    if unicodedata.normalize("NFKC", project).casefold().strip() != "global":
-        required = {word for word in project_words if len(word) >= 3 and word not in {"the", "and", "for", "project"}}
-        require(required and required <= set(informative), "query_missing_project")
-    normalized = " ".join(informative)
+    require(document_project_words(project) <= set(requested), "query_missing_project")
+    normalized = " ".join(requested)
     require(normalized and len(normalized) <= 600, "invalid_keyword_query")
     return normalized
 
