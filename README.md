@@ -1,18 +1,20 @@
 # Ledger Memory For Mac
 
 **Install, upgrade or uninstall BeMind's shared memory from Terminal.**
-The command below downloads the verified `bemind-mac-setup-1` prerelease.
+The installer downloads the verified `bemind-mac-setup-1` prerelease.
 This repository is private: your GitHub account must have access to it.
+
+**One line starts setup. The downloaded script handles the checks and prompts.**
 
 ## Start Here
 
 1. Have BeMind installed for a new installation or upgrade. It is not required to
    uninstall an existing managed memory installation.
-2. Open **Terminal** on your Mac. Copy the **entire code block** under One Command,
-   paste it into Terminal, and press Return. Do not add `sudo`.
-3. If prompted, approve prerequisite installation or GitHub sign-in separately.
-   Complete any GitHub browser/device sign-in yourself; never paste credentials
-   into the command. Installing missing tools uses existing approved Homebrew.
+2. Complete the one-time GitHub CLI setup below, unless `gh` is already installed
+   and signed into an account with repository access.
+3. Open **Terminal**, paste the single line under One Command and press Return.
+   Do not add `sudo`. The downloaded installer handles all remaining checks and
+   prompts; approve any Python/uv setup separately.
 4. For a new installation, read the displayed changes and type `yes` or `ok` to
    proceed. For an existing installation, choose **1. Upgrade**, **2. Uninstall**
    or **3. Cancel**, then confirm the displayed action. Enter or any other response
@@ -37,65 +39,48 @@ inference were not part of this release's validation.
 
 ## One Command
 
-Paste the entire block from this private project's GitHub homepage into Terminal.
-Reuse the same command for future approved updates.
-Each run authenticates to the fixed repository and resolves `main` exactly once.
-It validates that full commit SHA, then fetches the bootstrap, manifest and
-verifier at that immutable snapshot. This trusts the authenticated repository's
-approved `main` content, not a permanently frozen source commit or an arbitrary
-release. The snapshot's manifest selects one exact kit, including prereleases;
-the bootstrap never chooses the GitHub "latest release".
+With GitHub CLI installed and authenticated, paste this one line. Reuse it for
+installation, upgrades and uninstall:
 
 ```bash
-/bin/bash <<'BASH'
-set -euo pipefail
-umask 077
-export GH_HOST=github.com GH_PROMPT_DISABLED=1
-unset GH_DEBUG
-fail() { printf '%s\n' "$*" >&2; exit 1; }
-confirm() {
-  local reply
-  printf '%s [yes/ok to continue; anything else cancels]: ' "$1" >/dev/tty
-  IFS= read -r reply </dev/tty || fail 'Cancelled.'
-  case "$reply" in [yY][eE][sS]|[oO][kK]) ;; *) fail 'Cancelled.' ;; esac
-}
-[ "$(uname -s)" = Darwin ] || fail 'This command supports macOS only.'
-case "$(uname -m)" in arm64|x86_64) ;; *) fail 'Supported Mac architectures: arm64 and x86_64.' ;; esac
-( : </dev/tty ) 2>/dev/null || fail 'Run this command in Terminal; /dev/tty is required for consent and the manager menu.'
-if ! command -v gh >/dev/null 2>&1; then
-  command -v brew >/dev/null 2>&1 || fail 'Obtain GitHub CLI (gh) through your approved software channel; no approved Homebrew was found.'
-  confirm 'Use your existing approved Homebrew to download/install GitHub CLI and its dependencies with brew install gh?'
-  HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install gh || fail 'GitHub CLI installation failed.'
-  command -v gh >/dev/null 2>&1 || fail 'gh is not on PATH after installation. No shell profile was changed.'
-fi
-if ! gh auth status --hostname github.com >/dev/null 2>&1; then
-  confirm 'Browser login alone does not authenticate Terminal. Start interactive gh auth login --hostname github.com --web and save GitHub CLI authentication?'
-  ( unset GH_PROMPT_DISABLED; gh auth login --hostname github.com --web </dev/tty >/dev/tty 2>/dev/tty ) || fail 'GitHub CLI login failed or was cancelled.'
-  gh auth status --hostname github.com >/dev/null 2>&1 || fail 'GitHub CLI authentication is still unavailable.'
-fi
-commit=$(gh api --hostname github.com --method GET repos/be-mihai-mlesnita/ledger-memory/commits/main --jq .sha) || fail 'Cannot read this private repository; check your account access.'
-[[ "$commit" =~ ^[0-9a-f]{40}$ ]] || fail 'The repository returned an invalid full source commit.'
-d=$(mktemp -d "${TMPDIR:-/tmp}/ledger-homepage.XXXXXXXX")
-trap 'rm -rf -- "$d"' EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM HUP
-gh api --hostname github.com --method GET "repos/be-mihai-mlesnita/ledger-memory/contents/bootstrap.sh?ref=$commit" -H 'Accept: application/vnd.github.raw+json' >"$d/bootstrap.sh" || fail 'Bootstrap download failed; nothing downloaded will be executed.'
-test -s "$d/bootstrap.sh" || fail 'Empty bootstrap download; nothing will be executed.'
-/bin/bash "$d/bootstrap.sh" --source-commit "$commit" </dev/tty
-BASH
+(s=$(gh api --hostname github.com -H 'Accept: application/vnd.github.raw+json' repos/be-mihai-mlesnita/ledger-memory/contents/install.sh) && test -n "$s" && /bin/bash -c "$s")
 ```
 
-This downloads a complete file before running it with the system Bash; there is
-no `curl | bash`, embedded credential, token-bearing URL, or evaluation of remote
-manifest values as shell code. Authentication uses the installed `gh` credential
-mechanism. A browser session alone does not authenticate the terminal. The account
-must also have access to this private repository. If GitHub CLI is missing, the
-command may install it using **existing approved Homebrew**, but only after
-explicit `/dev/tty` consent. If authentication is missing, a separate consent
-starts interactive `gh auth login --hostname github.com --web`; complete its
-official browser/device flow and terminal prompts directly, never by putting
-credentials into this command or chat. Declining either prompt stops immediately.
-Nothing installs GitHub CLI or changes authentication without that consent.
+The setup logic lives in `install.sh`, not in the pasted command. The command
+executes nothing if the entry-script download fails or is empty. It does not
+embed credentials or stream a partially downloaded script into a shell.
+
+The entry script is fetched from the authenticated repository's default branch.
+It then resolves `main` once and pins the bootstrap, manifest and verifier to that
+full commit. The manifest selects the exact checksummed release. The initial
+entry-script fetch and the later pinned snapshot are separate requests; both
+trust reviewed repository content. No release is selected through a "latest" URL.
+
+## One-Time GitHub Setup
+
+Unlike a public installer, this private repository needs authenticated access
+before its entry script can be downloaded. A browser login alone is insufficient.
+If GitHub CLI is missing, obtain it through your approved software process, or
+use an existing approved Homebrew installation:
+
+```sh
+brew install gh
+```
+
+Then sign in once using your account with repository access:
+
+```sh
+gh auth login --hostname github.com --web
+```
+
+Complete GitHub's browser/device flow yourself; never paste credentials into the
+install command or chat. Already authenticated users skip these steps. A plain
+anonymous `curl` command cannot download this private file.
+
+An entry script downloaded manually through the authenticated GitHub website can
+also be run with `/bin/bash install.sh`. That local-file path retains the guided
+GitHub CLI installation/sign-in prompts; it does not make the private one-line
+download available before authentication.
 
 ## If Setup Stops
 
@@ -115,7 +100,7 @@ restart is an explicit follow-up, not an automatic bootstrap action.
 
 - Supported hosts: macOS on `arm64` or `x86_64` (including the active architecture under Rosetta).
 - GitHub CLI authenticated to `github.com`, with permission to read the private repository and its release assets.
-- The homepage command can offer `brew install gh` through existing approved Homebrew, and separately offer interactive GitHub CLI web login. Homebrew automatic updates and cleanup are disabled.
+- GitHub CLI must be installed and authenticated before using the private one-line download. The downloaded script handles remaining setup; a manually downloaded entry file also supports confirmed GitHub CLI setup through existing approved Homebrew.
 - Existing Python >=3.11 on PATH, or an existing `uv` installation able to find a suitable Python.
 - An explicit existing `BEMIND_DEPLOY_PYTHON` executable takes precedence, matching the deployment launcher. An invalid override is refused rather than silently ignored.
 - If Python and uv are missing but approved Homebrew already exists, the bootstrap offers `brew install uv` and waits for case-insensitive `yes` or `ok` via `/dev/tty`.
@@ -131,7 +116,7 @@ Without Python, even uninstall needs an interpreter to run that manager.
 No Python/uv provisioning or kit download occurs while the manifest is disabled
 or invalid, the release tag has the wrong commit, or the exact published asset
 is absent. GitHub CLI setup/login may already have been separately approved and
-completed so that the private manifest can be read. All prerequisite confirmations
+completed before the private entry script is fetched. All prerequisite confirmations
 accept `yes` or `ok` case-insensitively and use `/dev/tty`.
 Declining a prerequisite prompt stops the workflow. A successful earlier approved
 prerequisite installation is not rolled back if a later step is cancelled or fails.
@@ -142,7 +127,7 @@ No noninteractive "yes" flag is supported. Piped stdin cannot grant consent.
 The bootstrap requires `--source-commit FULL_40_LOWERCASE_HEX_SHA`. It retrieves
 `deployment/distribution.json` and `deployment/bootstrap_verify.py` from that
 same immutable source ref in `be-mihai-mlesnita/ledger-memory` using
-`gh api --hostname github.com`. The homepage resolves `main` once and supplies
+`gh api --hostname github.com`. The entry script resolves `main` once and supplies
 that full SHA; the bootstrap never re-resolves a branch. Authenticated repository
 access plus its approved `main` content is the trust model, not an independently
 authenticated publisher signature. Every change to `main` requires review
@@ -193,7 +178,7 @@ reviewed verifier change, not a manifest-provided executable allowlist.
 
 The exact handoff is `SELECTED_PYTHON -I -B EXTRACTED_KIT/manage.py`, or
 `SELECTED_PYTHON -I -B EXTRACTED_KIT/deployment/manage.py`. No action is injected.
-The manager inherits stdin (the homepage command uses `/dev/tty`) and owns its
+The manager inherits stdin (the entry script uses `/dev/tty`) and owns its
 menu, operation-specific consent, installation state and rollback. It must locate
 kit assets relative to `__file__`, preserve the selected interpreter for children,
 and finish copying anything it needs before it exits. The bootstrap preserves

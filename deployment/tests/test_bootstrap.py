@@ -85,13 +85,25 @@ elif command == "gh":
         raise SystemExit(0)
     if args[0] == "api":
         assert args[args.index("--hostname") + 1] == "github.com"
-        assert args[args.index("--method") + 1] == "GET"
+        if "--method" in args:
+            assert args[args.index("--method") + 1] == "GET"
         endpoint = next(a for a in args if a.startswith("repos/"))
         assert endpoint.startswith("repos/be-mihai-mlesnita/ledger-memory/")
+        entry = endpoint.endswith("/contents/install.sh")
         if "/contents/" in endpoint:
-            assert endpoint.endswith("?ref=" + os.environ.get("FAKE_SOURCE_COMMIT", "a" * 40))
+            assert entry or endpoint.endswith("?ref=" + os.environ.get("FAKE_SOURCE_COMMIT", "a" * 40))
             assert "Accept: application/vnd.github.raw+json" in args
-        if "distribution.json?" in endpoint:
+        if entry:
+            if mode in {"auth", "repo-auth", "login-fail", "login-unverified"}:
+                raise SystemExit(1)
+            if mode == "partial-entry":
+                sys.stdout.write('printf "ENTRY_PAYLOAD_EXECUTED\\n"\n')
+                raise SystemExit(1)
+            if mode == "empty-entry":
+                raise SystemExit(0)
+            sys.stdout.write(pathlib.Path(os.environ["ENTRY_SCRIPT"]).read_text())
+            raise SystemExit(0)
+        elif "distribution.json?" in endpoint:
             if mode == "repo-auth":
                 raise SystemExit(1)
             if mode == "invalid-json":
@@ -195,7 +207,7 @@ class BootstrapTests(unittest.TestCase):
             (self.bin / name).symlink_to(shutil.which(name))
         self.env = {"HOME": str(self.home), "PATH": str(self.bin), "TMPDIR": str(self.temps),
                     "FIXTURE": str(self.root), "HELPER": str(HELPER), "REAL_JQ": shutil.which("jq"),
-                    "BOOTSTRAP": str(ROOT / "bootstrap.sh"), "GH_DEBUG": "api"}
+                    "BOOTSTRAP": str(ROOT / "bootstrap.sh"), "ENTRY_SCRIPT": str(ROOT / "install.sh"), "GH_DEBUG": "api"}
         self.manifest = {"schema_version": 1, "ready": True,
                          "repository": "be-mihai-mlesnita/ledger-memory", "platform": "darwin",
                          "architectures": ["arm64", "x86_64"], "version": "9.8.7-rc2",
@@ -266,6 +278,9 @@ class BootstrapTests(unittest.TestCase):
     def run_homepage(self, responses=()):
         block = (ROOT / "README.md").read_text().split("```bash\n", 1)[1].split("```", 1)[0]
         return self.run_bootstrap(responses=responses, command=["/bin/bash", "-c", block])
+
+    def run_entry_file(self, responses=()):
+        return self.run_bootstrap(responses=responses, command=["/bin/bash", str(ROOT / "install.sh")])
 
     def assert_refused(self, text):
         code, output = self.run_bootstrap()
@@ -436,6 +451,37 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("/dev/tty", output)
         self.assertNotIn("WRAPPER_PAYLOAD_EXECUTED", output)
 
+    def test_homepage_entry_is_one_line(self):
+        block = (ROOT / "README.md").read_text().split("```bash\n", 1)[1].split("```", 1)[0].strip()
+        self.assertEqual(len(block.splitlines()), 1)
+        self.assertIn("/contents/install.sh", block)
+        self.assertIn('&& test -n "$s" && /bin/bash -c "$s"', block)
+
+    def test_homepage_failed_or_empty_entry_never_executes(self):
+        for mode in ("partial-entry", "empty-entry", "repo-auth", "auth"):
+            with self.subTest(mode=mode):
+                self.env["FAKE_MODE"] = mode
+                code, output = self.run_homepage()
+                self.assertNotEqual(code, 0, output)
+                self.assertNotIn("ENTRY_PAYLOAD_EXECUTED", output)
+                self.assertNotIn("WRAPPER_PAYLOAD_EXECUTED", output)
+        self.assertFalse(any(args[:2] == ["auth", "login"] for _, args, _ in self.calls()))
+        self.assertFalse((self.home / "manager.json").exists())
+
+    def test_homepage_requires_existing_github_cli(self):
+        (self.bin / "gh").unlink()
+        code, output = self.run_homepage()
+        self.assertNotEqual(code, 0, output)
+        self.assertEqual(self.calls(), [])
+        self.assertFalse((self.home / "manager.json").exists())
+
+    @unittest.skipUnless(shutil.which("zsh"), "Requires local zsh for the Mac paste syntax check")
+    def test_homepage_one_line_runs_from_zsh(self):
+        block = (ROOT / "README.md").read_text().split("```bash\n", 1)[1].split("```", 1)[0]
+        code, output = self.run_bootstrap(responses=(), command=[shutil.which("zsh"), "-f", "-c", block])
+        self.assertEqual(code, 0, output)
+        self.assertIn("WRAPPER_PAYLOAD_EXECUTED", output)
+
     def test_homepage_new_main_each_run_coherent_snapshot(self):
         self.env["FAKE_COMPLETE_BOOTSTRAP"] = "yes"
         for commit in (SOURCE_COMMIT, "d" * 40):
@@ -450,7 +496,8 @@ class BootstrapTests(unittest.TestCase):
                 calls = self.calls()[before:]
                 endpoints = [arg for name, args, _ in calls if name == "gh" for arg in args if arg.startswith("repos/")]
                 self.assertEqual(sum(p.endswith("/commits/main") for p in endpoints), 1)
-                contents = [p for p in endpoints if "/contents/" in p]
+                self.assertEqual(sum(p.endswith("/contents/install.sh") for p in endpoints), 1)
+                contents = [p for p in endpoints if "/contents/" in p and not p.endswith("/contents/install.sh")]
                 self.assertEqual(len(contents), 3)
                 self.assertTrue(all(p.endswith("?ref=" + commit) for p in contents))
                 downloads = [args for name, args, _ in calls if name == "gh" and args[:2] == ["release", "download"]]
@@ -458,42 +505,42 @@ class BootstrapTests(unittest.TestCase):
                 self.assertEqual(downloads[0][2], self.manifest["tag"])
                 self.assertIn("Selected reviewed kit " + self.manifest["version"], output)
 
-    def test_homepage_installs_gh_and_logs_in_only_with_separate_consent(self):
+    def test_entry_file_installs_gh_and_logs_in_only_with_separate_consent(self):
         (self.bin / "gh").unlink()
         (self.bin / "brew").symlink_to(self.root / "stub")
         self.env["FAKE_MODE"] = "auth"
-        code, output = self.run_homepage(responses=["YES", "oK"])
+        code, output = self.run_entry_file(responses=["YES", "oK"])
         self.assertEqual(code, 0, output)
         calls = self.calls()
         self.assertEqual(sum(name == "brew" for name, _, _ in calls), 1)
         self.assertEqual(sum(args[:2] == ["auth", "login"] for _, args, _ in calls), 1)
         self.assertTrue((self.root / "gh-authenticated").exists())
 
-    def test_homepage_declined_gh_install_never_authenticates(self):
+    def test_entry_file_declined_gh_install_never_authenticates(self):
         (self.bin / "gh").unlink()
         (self.bin / "brew").symlink_to(self.root / "stub")
-        code, output = self.run_homepage(responses=["no"])
+        code, output = self.run_entry_file(responses=["no"])
         self.assertNotEqual(code, 0, output)
         self.assertIn("Cancelled", output)
         self.assertFalse(any(name in {"brew", "gh"} for name, _, _ in self.calls()))
 
-    def test_homepage_declined_login_never_fetches(self):
+    def test_entry_file_declined_login_never_fetches(self):
         self.env["FAKE_MODE"] = "auth"
-        code, output = self.run_homepage(responses=["no"])
+        code, output = self.run_entry_file(responses=["no"])
         self.assertNotEqual(code, 0, output)
         self.assertFalse(any(args[:2] == ["auth", "login"] or args[0] == "api" for name, args, _ in self.calls() if name == "gh"))
 
-    def test_homepage_gh_requires_existing_approved_package_manager(self):
+    def test_entry_file_gh_requires_existing_approved_package_manager(self):
         (self.bin / "gh").unlink()
-        code, output = self.run_homepage()
+        code, output = self.run_entry_file()
         self.assertNotEqual(code, 0, output)
         self.assertIn("approved software channel", output)
 
-    def test_homepage_login_failures_and_repository_denial(self):
+    def test_entry_file_login_failures_and_repository_denial(self):
         for mode in ("login-fail", "login-unverified", "repo-auth"):
             with self.subTest(mode=mode):
                 self.env["FAKE_MODE"] = mode
-                code, output = self.run_homepage(responses=["yes"] if mode != "repo-auth" else [])
+                code, output = self.run_entry_file(responses=["yes"] if mode != "repo-auth" else [])
                 self.assertNotEqual(code, 0, output)
                 self.assertNotIn("WRAPPER_PAYLOAD_EXECUTED", output)
 
@@ -505,7 +552,8 @@ class BootstrapTests(unittest.TestCase):
                 self.assertNotEqual(code, 0, output)
                 self.assertIn("invalid full source commit", output)
         self.assertFalse((self.home / "PWNED").exists())
-        self.assertFalse(any("/contents/" in arg for _, args, _ in self.calls() for arg in args))
+        self.assertTrue(all(arg.endswith("/contents/install.sh")
+                            for _, args, _ in self.calls() for arg in args if "/contents/" in arg))
 
     def test_homepage_empty_download_is_never_executed(self):
         self.env["FAKE_MODE"] = "empty-bootstrap"
@@ -513,11 +561,11 @@ class BootstrapTests(unittest.TestCase):
         self.assertNotEqual(code, 0, output)
         self.assertIn("Empty bootstrap download", output)
 
-    def test_homepage_gh_install_failure_stops(self):
+    def test_entry_file_gh_install_failure_stops(self):
         (self.bin / "gh").unlink()
         (self.bin / "brew").symlink_to(self.root / "stub")
         self.env["FAKE_MODE"] = "brew-fail"
-        code, output = self.run_homepage(responses=["yes"])
+        code, output = self.run_entry_file(responses=["yes"])
         self.assertNotEqual(code, 0, output)
         self.assertIn("installation failed", output)
         self.assertFalse(any(name == "gh" for name, _, _ in self.calls()))

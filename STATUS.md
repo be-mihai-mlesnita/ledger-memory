@@ -137,6 +137,15 @@ Updated October 27, 2026.
   does not upgrade existing installations without their users' explicit confirmation.
 - Passive live check at 16:02 EET on October 27: the original rc6 indexing process
   remained active, with 23,438 vector receipts, 16,182 pending and zero failure rows.
+- The homepage paste block is replaced with a one-line
+  authenticated download of root `install.sh`. The existing launcher logic is
+  moved into that file; `bootstrap.sh`, the manager and release ZIP are unchanged.
+  GitHub CLI installation/sign-in is a one-time prerequisite for the private
+  download. The same entry serves installation, upgrade and uninstall.
+- Short-entry checks passed 55 tests, with four optional online checks skipped.
+  Coverage includes Bash/zsh invocation, complete/partial/empty downloads, missing
+  authentication, source pinning, cancellation and unchanged published-kit handoff.
+  No live installation, repository access policy or indexing process was changed.
 
 ## Repository
 
