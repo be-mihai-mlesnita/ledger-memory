@@ -1,6 +1,7 @@
 # Ledger Memory For Mac
 
 Install, upgrade or uninstall BeMind's shared memory with one pasted command.
+Ledger Memory is in the `0.3.0` series.
 This repository is public. **No GitHub account, access token or GitHub CLI is needed.**
 
 **Public curl/wget setup:** the downloaded launcher checks prerequisites and asks
@@ -114,11 +115,6 @@ documented in `deployment/README.md`.
 | `upstream/ledger-memory/` | Separately identified core reference snapshot |
 | `upstream/RELEASE.json` | Core reference and runtime provenance |
 | `repo_tools/` | Reviewed source selection and publication auditing |
-
-The reference snapshot is `0.3.0-rc3`; the distributed runtime is based on
-`0.3.0rc6`, profile `bemind-runtime-1`. That profile contains one documented
-diagnostic-message wording change; control and data logic are unchanged.
-Original input archives and local operational evidence remain outside GitHub.
 
 The currently selected kit remains `bemind-mac-setup-1`, SHA-256
 `601c2dc589c720b8510161bf35cf5cf65c3d0ab42cbd3ccc6e6b662fa989e3a5`.
