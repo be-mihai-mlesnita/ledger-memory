@@ -243,7 +243,7 @@ content remains untrusted, and existing model prechecks, approvals and privacy r
 
 ## Optional Semantic Search
 
-The existing setup-1 release leaves model download **off by default**. The upcoming
+The earlier setup-1 release left model download **off by default**. The current
 installer 0.3.1 uses the pinned curl/verified-cache flow after final install or
 upgrade confirmation; it does not fetch the model during uninstall. The optional
 inference libraries are installed either way, and keyword memory works without

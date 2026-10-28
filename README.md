@@ -1,8 +1,8 @@
 # Ledger Memory For Mac
 
 Install, upgrade or uninstall BeMind's shared memory with one pasted command.
-The next installer is **0.3.1**; the currently published command still selects the
-existing kit until the new release is reviewed and activated.
+The current Mac installer is **0.3.1**. Its core retains its independently recorded
+version; the installer label does not relabel the core.
 This repository is public. **No GitHub account, access token or GitHub CLI is needed.**
 
 **Public curl/wget setup:** the downloaded launcher checks prerequisites and asks
@@ -75,8 +75,9 @@ are downloaded via curl from a pinned Hugging Face revision (approximately 2.29 
 and verified against the bundled core's checksums before local import. An already
 verified model is reused; uninstall does not download it. A failed model download
 leaves the base installation available but semantic search incomplete. The current
-published kit still leaves model downloads opt-in. Conversation histories are not
-imported or uploaded. No running BeMind instance or indexing job is force-stopped.
+installer requires approval of the displayed install/upgrade scope before fetching
+the model. Conversation histories are not imported or uploaded. No running BeMind
+instance or indexing job is force-stopped.
 
 ## If Setup Stops
 
@@ -122,7 +123,7 @@ documented in `deployment/README.md`.
 | `upstream/RELEASE.json` | Core reference and runtime provenance |
 | `repo_tools/` | Reviewed source selection and publication auditing |
 
-The currently selected kit remains `bemind-mac-setup-1`, SHA-256
-`601c2dc589c720b8510161bf35cf5cf65c3d0ab42cbd3ccc6e6b662fa989e3a5`.
-Changing the public launcher does not change that ZIP or upgrade a user's existing
-installation without confirmation.
+The selected kit is `bemind-mac-setup-0.3.1`, SHA-256
+`e7a80a59d9c07e069cfeb652b3de28a23cdaa619e34abd304d6e3a92bad529bc`.
+The previous setup-1 kit remains available. Publishing a new installer does not
+upgrade an existing installation until its user chooses Upgrade and confirms.

@@ -45,9 +45,10 @@ manifest_filter='
     or (.asset | text("[A-Za-z0-9][A-Za-z0-9._-]{0,159}[.]zip") | not)
     or (.sha256 | text("[0-9a-f]{64}") | not)
     or (.kit_commit | text("[0-9a-f]{40}") | not)
+    or (.installer_version != null and (.installer_version | text("[0-9]+[.][0-9]+[.][0-9]+") | not))
     or (.layout != "root" and .layout != "deployment") then
     error("Invalid enabled distribution manifest")
-  else "ready", .version, .tag, .asset, .sha256, .kit_commit, .layout end'
+  else "ready", .version, .tag, .asset, .sha256, .kit_commit, .layout, (.installer_version // "") end'
 gh api --hostname github.com --method GET \
     "repos/$repo/contents/deployment/distribution.json?ref=$source_commit" \
     -H 'Accept: application/vnd.github.raw+json' --jq "$manifest_filter" >"$temp/manifest.fields" \
@@ -62,6 +63,7 @@ gh api --hostname github.com --method GET \
     IFS= read -r digest
     IFS= read -r kit_commit
     IFS= read -r layout
+    IFS= read -r installer_version || installer_version=
 } <"$temp/manifest.fields"
 
 resolved=$(gh api --hostname github.com --method GET "repos/$repo/commits/$tag" --jq '.sha') \
@@ -132,4 +134,8 @@ manager="$temp/extracted/manage.py"
 if [ "$layout" = deployment ]; then manager="$temp/extracted/deployment/manage.py"; fi
 # Keep this shell alive so its EXIT trap removes only its own temporary directory.
 # manage.py owns the action/menu/confirmation and must not retain these temp paths.
-"$python" -I -B "$manager"
+if [ -n "$installer_version" ]; then
+    "$python" -I -B "$manager" --auto-model
+else
+    "$python" -I -B "$manager"
+fi

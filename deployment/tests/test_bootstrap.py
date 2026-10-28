@@ -267,6 +267,12 @@ class BootstrapTests(unittest.TestCase):
         self.assertFalse(any(debug for _, _, debug in self.calls()))
         self.assertFalse(any("latest" in arg for _, args, _ in self.calls() for arg in args))
 
+    def test_new_installer_manifest_enables_model_after_menu_selection(self):
+        self.manifest["installer_version"] = "0.3.1"
+        code, output = self.run_bootstrap()
+        self.assertEqual(code, 0, output)
+        self.assertEqual(json.loads((self.home / "manager.json").read_text())["argv"][-1], "--auto-model")
+
     def test_platform_and_architecture_refusal(self):
         self.env["FAKE_OS"] = "Linux"
         self.assert_refused("macOS only")

@@ -6,9 +6,10 @@
   "platform": "darwin",
   "architectures": ["arm64", "x86_64"],
   "version": "0.3.0-rc6",
-  "tag": "bemind-mac-setup-1",
-  "asset": "bemind-ledger-memory-0.3.0-rc6-mac-setup-1.zip",
-  "sha256": "601c2dc589c720b8510161bf35cf5cf65c3d0ab42cbd3ccc6e6b662fa989e3a5",
-  "kit_commit": "643f96555661c84082e3a91df7ef5f9996b0dd0b",
+  "installer_version": "0.3.1",
+  "tag": "bemind-mac-setup-0.3.1",
+  "asset": "bemind-ledger-memory-installer-0.3.1.zip",
+  "sha256": "e7a80a59d9c07e069cfeb652b3de28a23cdaa619e34abd304d6e3a92bad529bc",
+  "kit_commit": "9f068a50578232c0b2f40a968206aaa53f244459",
   "layout": "root"
 }

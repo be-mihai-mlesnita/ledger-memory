@@ -1,6 +1,6 @@
 # Project Status
 
-Updated October 27, 2026.
+Updated October 28, 2026.
 
 ## Core
 
@@ -172,11 +172,11 @@ Updated October 27, 2026.
   No new kit, asset replacement or core revision is required. Publication does
   not upgrade existing installations or restart their workers.
 
-## Installer 0.3.1 Candidate
+## Installer 0.3.1
 
-- New separately identified installer `0.3.1` retains the actual core build
-  `0.3.0rc6` and its original distribution checksum. The public manifest still
-  selects the previously published setup-1 kit; this candidate is not published.
+- Separately identified installer `0.3.1` retains the actual core build
+  `0.3.0rc6` and its original distribution checksum. The public manifest selects
+  `bemind-mac-setup-0.3.1`; setup-1 remains available unchanged.
 - After the user confirms install or upgrade, the new manager enables BGE-M3.
   It verifies an existing model cache first. If missing, curl fetches the pinned
   Hugging Face revision over HTTPS, follows HTTPS-only redirects, validates every
@@ -194,9 +194,14 @@ Updated October 27, 2026.
   this rare fallback is disclosed in the preview, not falsely described as curl-only.
 - Complete isolated regression: 1,362 passed, six optional checks skipped,
   144 subtests passed. Source and nested archive audits passed with zero findings.
-  Candidate `deployment/dist/bemind-ledger-memory-installer-0.3.1.zip` SHA-256:
+  Release asset `deployment/dist/bemind-ledger-memory-installer-0.3.1.zip` SHA-256:
   `e7a80a59d9c07e069cfeb652b3de28a23cdaa619e34abd304d6e3a92bad529bc`.
   The 2.29 GB download and Intel-Mac runtime remain untested end-to-end.
+- Source commit `9f068a50578232c0b2f40a968206aaa53f244459` and separate prerelease
+  `bemind-mac-setup-0.3.1` were published. Downloaded release assets, tag target,
+  release notes, extraction, nested privacy and unchanged core bytes were verified.
+  The public activation manifest pins this verified source and release. Publication
+  has not upgraded this Mac or stopped its running indexer.
 
 ## Repository
 
