@@ -2,7 +2,7 @@
   "schema_version": 1,
   "repository": "be-mihai-mlesnita/ledger-memory",
   "ready": true,
-  "reason": "Approved private release; downloaded bytes and tag provenance verified.",
+  "reason": "Approved source release; downloaded bytes and tag provenance verified.",
   "platform": "darwin",
   "architectures": ["arm64", "x86_64"],
   "version": "0.3.0-rc6",

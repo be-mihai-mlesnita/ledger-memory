@@ -147,14 +147,39 @@ Updated October 27, 2026.
   authentication, source pinning, cancellation and unchanged published-kit handoff.
   No live installation, repository access policy or indexing process was changed.
 
+## Public Homebrew-First Launcher
+
+- The owner made the existing repository public. Anonymous raw-script retrieval
+  returned HTTP 200. All four published default-branch commits and the release
+  assets were rechecked with the required policy; no findings were reported.
+- The public `install.sh` implements curl/wget downloads without GitHub
+  CLI, tokens or login. It offers the official Homebrew installer when absent,
+  finds standard Homebrew prefixes, then offers only missing Python 3.13/uv packages.
+  Tool preparation precedes the manager menu, including uninstall. Approved
+  prerequisite changes are retained after later cancellation or failure.
+- The public manifest pins the existing archive SHA-256 and verifier source commit.
+  No REST tag lookup or GitHub authentication is used. Homebrew's official HEAD
+  installer is mutable HTTPS content, not checksum-pinned by this launcher.
+- Local validation: 1,328 tests passed, six optional checks skipped, 142 subtests
+  passed. The local candidate also completed real anonymous manifest/verifier/ZIP
+  downloads, hash verification, extraction and the existing-installation menu;
+  blank input cancelled, with checked configuration unchanged.
+- Real native verification reused existing tools. Missing Homebrew/formula
+  installation was exercised with inert fixtures, not real system installation.
+  No live Ledger upgrade, worker restart or model invocation occurred.
+- The existing setup-1 ZIP and runtime distribution remain unchanged. The
+  Homebrew-first public entry supersedes the older GitHub-CLI entry at `94e2c3c`.
+  No new kit, asset replacement or core revision is required. Publication does
+  not upgrade existing installations or restart their workers.
+
 ## Repository
 
-- Personal repository: `be-mihai-mlesnita/ledger-memory`, verified private.
+- Personal repository: `be-mihai-mlesnita/ledger-memory`, verified public after the owner's change.
 - Git metadata is local to the work Mac, outside the synchronized working folder. Use a
   separate clone on other machines, not the machine-local `.git` pointer.
 - The repository audit covers nested archives as well as plain files. Its two explicit
   literal exceptions are reviewed synthetic credential-rejection fixtures, not secrets.
 - Source, tests and selected technical documentation are versioned. Audited source-only
-  ZIP kits are private release assets; operational notes, original input packages,
+  ZIP kits are public release assets; operational notes, original input packages,
   model weights, caches, runtime state and live databases remain local-only.
 - Check Git/GitHub for actual publication state. No unattended publishing is configured.
