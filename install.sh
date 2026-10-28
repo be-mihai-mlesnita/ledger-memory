@@ -123,10 +123,13 @@ try:
     m = json.loads(data.decode("utf-8"), object_pairs_hook=unique)
     fields = {"schema_version", "ready", "repository", "platform", "architectures",
               "version", "tag", "asset", "sha256", "kit_commit", "layout"}
-    if not isinstance(m, dict) or not fields <= set(m) or set(m) - fields - {"reason"}:
+    if not isinstance(m, dict) or not fields <= set(m) or set(m) - fields - {"reason", "installer_version"}:
         raise ValueError("Unexpected manifest fields")
     if "reason" in m and not isinstance(m["reason"], str):
         raise ValueError("Invalid reason")
+    if "installer_version" in m and (not isinstance(m["installer_version"], str)
+            or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", m["installer_version"])):
+        raise ValueError("Invalid installer version")
     if (type(m["schema_version"]) is not int or m["schema_version"] != 1
         or m["ready"] is not True or m["repository"] != "be-mihai-mlesnita/ledger-memory"
         or m["platform"] != "darwin" or m["architectures"] != ["arm64", "x86_64"]
@@ -141,6 +144,7 @@ try:
             raise ValueError("Invalid " + key)
     for key in ("version", "tag", "asset", "sha256", "kit_commit", "layout"):
         print(m[key])
+    print(m.get("installer_version", ""))
 except (ValueError, TypeError, OSError, RecursionError) as exc:
     print("Manifest validation failed: " + str(exc), file=sys.stderr)
     sys.exit(1)
@@ -152,8 +156,10 @@ PY
   IFS= read -r digest
   IFS= read -r kit_commit
   IFS= read -r layout
+  IFS= read -r installer_version
 } <"$temp/manifest.fields"
 printf 'Selected kit %s (%s), verifier source %s.\n' "$version" "$tag" "$kit_commit"
+if [ -n "$installer_version" ]; then printf 'Installer version %s.\n' "$installer_version"; fi
 download "https://raw.githubusercontent.com/$repo/$kit_commit/deployment/bootstrap_verify.py" "$temp/bootstrap_verify.py"
 download "https://github.com/$repo/releases/download/$tag/$asset" "$temp/kit.zip"
 "$python" -I -B -c 'import hashlib, sys; f = open(sys.argv[1], "rb"); raise SystemExit(0 if hashlib.file_digest(f, "sha256").hexdigest() == sys.argv[2] else 1)' \
@@ -164,4 +170,8 @@ manager="$temp/extracted/manage.py"
 if [ "$layout" = deployment ]; then manager="$temp/extracted/deployment/manage.py"; fi
 # The trusted main manifest pins bytes/source; the release tag is only a locator.
 # Keep this shell alive for cleanup. The manager owns all Ledger action consent.
-"$python" -I -B "$manager" </dev/tty >/dev/tty 2>/dev/tty
+if [ -n "$installer_version" ]; then
+  "$python" -I -B "$manager" --auto-model </dev/tty >/dev/tty 2>/dev/tty
+else
+  "$python" -I -B "$manager" </dev/tty >/dev/tty 2>/dev/tty
+fi

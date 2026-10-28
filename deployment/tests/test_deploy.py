@@ -449,6 +449,71 @@ def test_semantic_failure_reports_base_install_exists(box, monkeypatch):
     assert (model / "model.onnx").read_text() == "preserve source"
 
 
+def test_low_level_curl_refused_without_manager_consent(box):
+    box.args.semantic = True
+    box.args.curl_model = True
+    with pytest.raises(d.DeployError, match="final interactive"):
+        d.deploy(box.args)
+    assert not box.calls and not box.state.exists()
+    box.args.dry_run = True
+    assert "preflight" in d.deploy(box.args)
+    assert not box.calls
+
+
+def test_curl_requires_semantic_and_cannot_run_uninstall(box):
+    box.args.curl_model = True
+    with pytest.raises(d.DeployError, match="requires --semantic"):
+        d.deploy(box.args)
+    d.deploy(d.parser().parse_args(["install", "--memory-mode", "direct"]))
+    with pytest.raises(d.DeployError, match="install/upgrade"):
+        d.deploy(SimpleNamespace(**{**vars(box.args), "command": "uninstall", "semantic": True, "dry_run": True}))
+
+
+@pytest.mark.parametrize("cached,failed", [(True, False), (False, False), (False, True)])
+def test_curl_after_base_transaction_skips_cache_or_fails_closed(box, monkeypatch, cached, failed):
+    box.args.semantic = True
+    box.args.curl_model = True
+    box.args._curl_model_approved = True
+    events = []
+    monkeypatch.setattr(d.model_download, "pinned_manifest", lambda runtime: events.append("manifest") or {})
+    def cache(runtime, env):
+        events.append("cached")
+        return cached or "downloaded" in events and not failed
+    monkeypatch.setattr(d.model_download, "cached_model", cache)
+    def download(runtime, env, parent, manifest):
+        assert receipt(box)["status"] == "installed"
+        events.append("downloaded")
+        if failed:
+            raise d.model_download.ModelDownloadError("synthetic failure")
+    monkeypatch.setattr(d.model_download, "curl_bundle", download)
+    result = d.deploy(box.args)
+    assert receipt(box)["status"] == "installed"
+    assert ("failed" in result) is failed
+    assert ("downloaded" in events) is (not cached)
+    assert any(call[0][-3:] == ["enable", "--model", "bge-m3"] for call in box.calls) is not failed
+
+
+def test_curl_import_without_verified_cache_cannot_enable(box, monkeypatch):
+    box.args.semantic = box.args.curl_model = box.args._curl_model_approved = True
+    monkeypatch.setattr(d.model_download, "pinned_manifest", lambda runtime: {})
+    monkeypatch.setattr(d.model_download, "cached_model", lambda runtime, env: False)
+    monkeypatch.setattr(d.model_download, "curl_bundle", lambda *a: None)
+    assert "Semantic setup failed" in d.deploy(box.args)
+    assert receipt(box)["status"] == "installed"
+    assert not any("enable" in call[0] for call in box.calls)
+
+
+def test_cache_lost_between_two_verifications_cannot_enable(box, monkeypatch):
+    box.args.semantic = box.args.curl_model = box.args._curl_model_approved = True
+    monkeypatch.setattr(d.model_download, "pinned_manifest", lambda runtime: {})
+    checks = iter([True, False])
+    monkeypatch.setattr(d.model_download, "cached_model", lambda runtime, env: next(checks))
+    monkeypatch.setattr(d.model_download, "curl_bundle", lambda *a: pytest.fail("Initially valid cache must not curl"))
+    assert "Semantic setup failed" in d.deploy(box.args)
+    assert receipt(box)["status"] == "installed"
+    assert not any("enable" in call[0] for call in box.calls)
+
+
 def test_existing_sqlite_backup_is_private_and_source_not_migrated(box):
     box.store.mkdir()
     with sqlite3.connect(box.store / "memory.db") as db:

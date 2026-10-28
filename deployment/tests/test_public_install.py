@@ -438,13 +438,22 @@ class PublicInstallTests(unittest.TestCase):
                              ("asset", "../x.zip"), ("asset", "-x.zip"), ("asset", "*.zip"), ("asset", "x.zip\n"),
                              ("sha256", "A" * 64), ("sha256", "0" * 63), ("sha256", "0" * 64 + "\n"),
                              ("kit_commit", "main"), ("kit_commit", "b" * 39), ("kit_commit", "B" * 40),
-                             ("kit_commit", "b" * 40 + "/evil"), ("unknown", "extra"), ("reason", False)):
+                              ("kit_commit", "b" * 40 + "/evil"), ("unknown", "extra"), ("reason", False),
+                              ("installer_version", "0.3.1;evil"), ("installer_version", 0.31)):
             with self.subTest(field=field, value=value):
                 self.manifest = dict(original, **{field: value})
                 self.refuse("Invalid distribution manifest")
         self.manifest = {k: v for k, v in original.items() if k != "ready"}
         self.refuse("Invalid distribution manifest")
         self.assertFalse(any(args[-1].endswith("bootstrap_verify.py") for name, args, _ in self.calls() if name == "curl"))
+
+    def test_new_installer_version_requests_model_for_install_and_upgrade(self):
+        self.manifest["installer_version"] = "0.3.1"
+        code, output = self.run_install()
+        self.assertEqual(code, 0, output)
+        self.assertIn("Installer version 0.3.1", output)
+        handoff = json.loads((self.home / "manager.json").read_text())
+        self.assertEqual(handoff["argv"][-1], "--auto-model")
 
     def test_published_manifest_shape_with_inert_fixture_kit(self):
         self.manifest = json.loads((ROOT / "deployment/distribution.json").read_text())
@@ -467,7 +476,11 @@ class PublicInstallTests(unittest.TestCase):
         (self.root / "kit.zip").write_bytes(blob)
         self.env["FAKE_INTERCEPT_MANAGER"] = "yes"
         with zipfile.ZipFile(kit) as archive:
-            self.assertEqual(archive.read("bootstrap_verify.py"), legacy.HELPER.read_bytes())
+            # The published setup-1 verifier is pinned to its old source commit;
+            # current development may legitimately add new kit members.
+            old_verifier = self.root / "setup-1-verifier.py"
+            old_verifier.write_bytes(archive.read("bootstrap_verify.py"))
+            self.env["HELPER"] = str(old_verifier)
             manager_digest = hashlib.sha256(archive.read("manage.py")).hexdigest()
         code, output = self.run_install()
         self.assertEqual(code, 0, output)
@@ -476,6 +489,26 @@ class PublicInstallTests(unittest.TestCase):
         self.assertEqual(handoff["args"][:2], ["-I", "-B"])
         self.assertEqual(len(handoff["args"]), 3)
         self.assertFalse(Path(handoff["args"][2]).exists())
+
+    @unittest.skipUnless(os.environ.get("LEDGER_MODEL_INSTALLER_TEST_KIT"), "Set LEDGER_MODEL_INSTALLER_TEST_KIT to the local 0.3.1 candidate")
+    def test_new_model_installer_kit_handoff_is_explicit_and_core_unchanged(self):
+        kit = Path(os.environ["LEDGER_MODEL_INSTALLER_TEST_KIT"]).resolve()
+        self.assertTrue(kit.is_relative_to(ROOT))
+        blob = kit.read_bytes()
+        self.manifest.update(installer_version="0.3.1", tag="bemind-mac-setup-0.3.1",
+                             asset=kit.name, sha256=hashlib.sha256(blob).hexdigest())
+        (self.root / "kit.zip").write_bytes(blob)
+        self.env["FAKE_INTERCEPT_MANAGER"] = "yes"
+        with zipfile.ZipFile(kit) as archive:
+            self.assertEqual(archive.read("bootstrap_verify.py"), legacy.HELPER.read_bytes())
+            self.assertIn(b"INSTALLER_VERSION = \"0.3.1\"", archive.read("manage.py"))
+            self.assertIn(b"def curl_bundle", archive.read("model_download.py"))
+            self.assertEqual(hashlib.sha256(archive.read("ledger-memory-0.3.0-rc6.zip")).hexdigest(),
+                             "4ebb3c8f4c5e72c1741b78e15e4f57b8488d2219ca33ce88e08a2cf08ee2826b")
+        code, output = self.run_install()
+        self.assertEqual(code, 0, output)
+        handoff = json.loads((self.home / "manager.json").read_text())
+        self.assertEqual(handoff["args"][-1], "--auto-model")
 
     def test_malformed_duplicate_bounded_and_deep_json(self):
         for mode in ("invalid-json", "duplicate-json", "oversized-json", "deep-json", "invalid-utf8"):

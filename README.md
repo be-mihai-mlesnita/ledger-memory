@@ -1,7 +1,8 @@
 # Ledger Memory For Mac
 
 Install, upgrade or uninstall BeMind's shared memory with one pasted command.
-Ledger Memory is in the `0.3.0` series.
+The next installer is **0.3.1**; the currently published command still selects the
+existing kit until the new release is reviewed and activated.
 This repository is public. **No GitHub account, access token or GitHub CLI is needed.**
 
 **Public curl/wget setup:** the downloaded launcher checks prerequisites and asks
@@ -69,8 +70,13 @@ and bounded to 1..32. A 12-CPU Mac gets four threads. Upgrades preserve the save
 choice. This is an inference-thread setting, not a strict CPU-percentage quota.
 An already-running model worker keeps its previous setting until safely restarted.
 
-Model downloads remain opt-in. Conversation histories are not imported or uploaded
-by this installer. No running BeMind instance or indexing job is force-stopped.
+In installer 0.3.1, after confirming install or upgrade, missing BGE-M3 artifacts
+are downloaded via curl from a pinned Hugging Face revision (approximately 2.29 GB)
+and verified against the bundled core's checksums before local import. An already
+verified model is reused; uninstall does not download it. A failed model download
+leaves the base installation available but semantic search incomplete. The current
+published kit still leaves model downloads opt-in. Conversation histories are not
+imported or uploaded. No running BeMind instance or indexing job is force-stopped.
 
 ## If Setup Stops
 

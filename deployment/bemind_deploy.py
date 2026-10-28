@@ -26,6 +26,7 @@ import zipfile
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jsonc_edit
+import model_download
 
 HERE = Path(__file__).resolve().parent
 ARCHIVE_NAME = "ledger-memory-0.3.0-rc6.zip"
@@ -1430,6 +1431,12 @@ def deploy_managed(args, receipt, receipt_before, receipt_path, chosen, snapshot
         try:
             if args.model_dir:
                 run([str(cli), "semantic", "import", str(Path(args.model_dir).expanduser().resolve())], runtime, env, "Local model import")
+            elif getattr(args, "curl_model", False):
+                manifest = model_download.pinned_manifest(runtime)
+                if not model_download.cached_model(runtime, env):
+                    model_download.curl_bundle(runtime, env, state, manifest)
+            if getattr(args, "curl_model", False) and not model_download.cached_model(runtime, env):
+                raise model_download.ModelDownloadError("Pinned model cache verification failed after import.")
             run([str(cli), "semantic", "enable", "--model", "bge-m3"], runtime, env, "Semantic enable")
         except ProcessCleanupError as exc:
             atomic(state / "pending.json", encoded({"schema": 1, "phase": "process_cleanup", "runtime": str(runtime), "pid": exc.pid}), None)
@@ -1466,6 +1473,11 @@ def deploy(args, *, check_prerequisites=True) -> str:
     # Do not mutate the caller's selection: repeated upgrades must distinguish an
     # omitted flag from explicit auto. The interactive frontend pins its preview.
     args = argparse.Namespace(**vars(args))
+    if getattr(args, "curl_model", False):
+        if args.command != "install" or not args.semantic:
+            raise DeployError("--curl-model requires --semantic on install/upgrade only.")
+        if not args.dry_run and not getattr(args, "_curl_model_approved", False):
+            raise DeployError("--curl-model requires final interactive install/upgrade consent in the manager.")
     if not check_prerequisites and not args.dry_run:
         raise DeployError("Prerequisite checks may only be deferred during read-only preflight.")
     args._skip_prerequisites = not check_prerequisites
@@ -1592,6 +1604,12 @@ def deploy(args, *, check_prerequisites=True) -> str:
                 if args.model_dir:
                     run([str(cli), "semantic", "import", str(Path(args.model_dir).expanduser().resolve())],
                         runtime, env, "Local model import")
+                elif getattr(args, "curl_model", False):
+                    manifest = model_download.pinned_manifest(runtime)
+                    if not model_download.cached_model(runtime, env):
+                        model_download.curl_bundle(runtime, env, state, manifest)
+                if getattr(args, "curl_model", False) and not model_download.cached_model(runtime, env):
+                    raise model_download.ModelDownloadError("Pinned model cache verification failed after import.")
                 run([str(cli), "semantic", "enable", "--model", "bge-m3"], runtime, env, "Semantic enable")
             except ProcessCleanupError as exc:
                 atomic(state / "pending.json", encoded({"schema": 1, "phase": "process_cleanup",
@@ -1661,6 +1679,8 @@ def parser(command_name=None) -> argparse.ArgumentParser:
             command.add_argument("--embed-threads", type=embed_threads, default=None, metavar="N|auto",
                                  help="1..32 or auto (one third of usable logical CPUs, capped at 32). Upgrades preserve the stored selection unless overridden.")
             command.add_argument("--semantic", action="store_true")
+            command.add_argument("--curl-model", action="store_true",
+                                 help="Manager-only consent-gated curl download of the pinned model when cache is missing.")
             command.add_argument("--model-dir")
             command.add_argument("--ca-bundle")
             command.add_argument("--memory-mode", choices=("direct", "luna"), default=None,

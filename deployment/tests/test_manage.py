@@ -339,6 +339,94 @@ def test_semantic_opt_in_shows_large_download_before_any_commands(front, monkeyp
     assert bool(semantic) is (answer == "yes")
 
 
+@pytest.mark.parametrize("answer", ["no", "yes"])
+def test_curl_model_requires_final_preview_and_approval(front, monkeypatch, capsys, answer):
+    events = []
+    monkeypatch.setattr(d.model_download, "pinned_manifest", lambda runtime: events.append("manifest") or {})
+    monkeypatch.setattr(d.model_download, "cached_model", lambda runtime, env: events.append("cached") or True)
+    def approve(message):
+        output = capsys.readouterr().out
+        assert "multi-GB" in output and "2.29 GB" in output and "https://huggingface.co" in output
+        assert d.model_download.REVISION in output and not events and not front.calls
+        for warning in ("BAAI/bge-m3", "HTTPS-only redirects", "proxy credentials", "4-hour", "may take hours",
+                        "urllib downloader", "asynchronously"):
+            assert warning in output
+        return answer
+    responses(monkeypatch, approve)
+    assert manage.main(flags(front, "--semantic", "--curl-model")) == 0
+    assert events == (["manifest", "cached", "cached"] if answer == "yes" else [])
+
+
+@pytest.mark.parametrize("flag", ["--inspect-json", "--dry-run"])
+def test_curl_model_readonly_does_not_inspect_cache_or_download(front, monkeypatch, flag):
+    monkeypatch.setattr(d.model_download, "cached_model", lambda *a: pytest.fail("No cache verification in preview"))
+    monkeypatch.setattr(d.model_download, "curl_bundle", lambda *a: pytest.fail("No download in preview"))
+    assert manage.main(flags(front, "--semantic", "--curl-model", flag)) == 0
+    assert not front.calls
+
+
+def test_curl_model_without_semantic_refused_before_consent(front, monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda *a: pytest.fail("No consent for invalid scope"))
+    assert manage.main(flags(front, "--curl-model")) == 1
+    assert not front.calls and not front.state.exists()
+
+
+def test_curl_model_with_explicit_directory_never_downloads(front, monkeypatch, capsys):
+    model = front.root / "local model"
+    model.mkdir()
+    monkeypatch.setattr(d.model_download, "curl_bundle", lambda *a: pytest.fail("Explicit model source must not curl"))
+    monkeypatch.setattr(d.model_download, "cached_model", lambda *a: True)
+    def approve(message):
+        output = capsys.readouterr().out
+        assert "no curl download" in output and "urllib downloader" in output
+        return "yes"
+    responses(monkeypatch, approve)
+    assert manage.main(flags(front, "--semantic", "--curl-model", "--model-dir", str(model))) == 0
+    assert any(call[0][-3:] == ["semantic", "import", str(model)] for call in front.calls)
+
+
+@pytest.mark.parametrize("action", ["install", "upgrade", "uninstall"])
+def test_auto_model_only_applies_to_confirmed_install_or_upgrade(front, monkeypatch, action, capsys):
+    events = []
+    monkeypatch.setattr(d.model_download, "pinned_manifest", lambda runtime: events.append("manifest") or {})
+    def cached(runtime, env):
+        events.append("cached")
+        return action != "upgrade" or "downloaded" in events
+    monkeypatch.setattr(d.model_download, "cached_model", cached)
+    monkeypatch.setattr(d.model_download, "curl_bundle", lambda runtime, env, parent, manifest: events.append("downloaded"))
+    if action == "uninstall":
+        d.deploy(front.args)
+        front.calls.clear()
+        responses(monkeypatch, "2", "yes")
+        assert manage.main(flags(front, "--auto-model")) == 0
+        assert receipt(front)["status"] == "uninstalled"
+        assert not events
+    elif action == "upgrade":
+        d.deploy(front.args)
+        old_receipt = receipt(front)
+        front.calls.clear()
+        responses(monkeypatch, "1", "yes")
+        assert manage.main(flags(front, "--auto-model")) == 0
+        assert receipt(front)["owner"] == old_receipt["owner"]
+        assert receipt(front)["store"] == old_receipt["store"]
+        assert len(receipt(front)["runtimes"]) == len(old_receipt["runtimes"]) + 1
+        assert events == ["manifest", "cached", "downloaded", "cached"]
+        assert any(call[0][-3:] == ["enable", "--model", "bge-m3"] for call in front.calls)
+    else:
+        responses(monkeypatch, "yes")
+        assert manage.main(flags(front, "--auto-model")) == 0
+        assert events == ["manifest", "cached", "cached"]
+    assert "installer 0.3.1" in capsys.readouterr().out
+
+
+def test_auto_model_readonly_preview_displays_installer_and_model_scope(front, capsys):
+    assert manage.main(flags(front, "--auto-model", "--inspect-json")) == 0
+    plan = json.loads(capsys.readouterr().out)
+    assert plan["installer_version"] == "0.3.1"
+    assert "curl" in plan["semantic"] and "huggingface.co" in plan["semantic"]
+    assert plan["version"] == "0.3.0rc3"  # Synthetic archive metadata is not relabeled.
+
+
 def test_no_yes_bypass(front):
     with pytest.raises(SystemExit):
         manage.main(flags(front, "--yes"))

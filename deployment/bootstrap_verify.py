@@ -12,7 +12,7 @@ import zipfile
 
 # This is a code allowlist, not a list supplied by the untrusted ZIP/manifest.
 FILES = frozenset({
-    "manage.py", "bemind_deploy.py", "jsonc_edit.py", "bootstrap_verify.py",
+    "manage.py", "bemind_deploy.py", "jsonc_edit.py", "model_download.py", "bootstrap_verify.py",
     "install.sh", "uninstall.sh", "run.sh", "install.ps1", "uninstall.ps1", "run.ps1",
     "README.md", "VALIDATION.md", "MEMORY-RULES.md", "distribution.json",
     "gateway/memory_gateway.py", "gateway/ledger_backend.py",

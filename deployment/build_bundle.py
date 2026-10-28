@@ -18,7 +18,7 @@ from bemind_deploy import ARCHIVE_NAME, verified_archive
 
 NAME = "bemind-" + ARCHIVE_NAME.removesuffix(".zip") + "-deployment.zip"
 FILES = ["install.sh", "uninstall.sh", "run.sh", "install.ps1", "uninstall.ps1", "run.ps1",
-         "bemind_deploy.py", "jsonc_edit.py", "manage.py", "bootstrap_verify.py",
+         "bemind_deploy.py", "jsonc_edit.py", "manage.py", "model_download.py", "bootstrap_verify.py",
          "MEMORY-RULES.md", "README.md", "VALIDATION.md",
          "gateway/memory_gateway.py", "gateway/ledger_backend.py",
          "gateway/gateway_backend_contract.py", "gateway/worker_guard.mjs"]

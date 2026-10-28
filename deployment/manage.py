@@ -16,6 +16,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import bemind_deploy as d
 
+INSTALLER_VERSION = "0.3.1"
+
 
 class InspectionError(d.DeployError):
     def __init__(self, status, message):
@@ -31,6 +33,7 @@ def parser():
                         help="Select an action, still requiring the full confirmation prompt.")
     result.add_argument("--inspect-json", action="store_true", help="Read-only inspection and preview; never prompt or execute.")
     result.add_argument("--keep-runtime", action="store_true", help="Uninstall registration only; retain owned runtimes too.")
+    result.add_argument("--auto-model", action="store_true", help="For install/upgrade only: after final confirmation, fetch and enable pinned BGE-M3 via curl if not cached.")
     return result
 
 
@@ -189,7 +192,7 @@ def material_state(args, receipt):
         executables.add(Path(args.bemind_command))
         release = d.safe_path(Path(args.archive))
         files.update((release, release.with_suffix(release.suffix + ".sha256"), d.HERE / "MEMORY-RULES.md"))
-        files.update(d.HERE / name for name in ("bemind_deploy.py", "jsonc_edit.py", "manage.py"))
+        files.update(d.HERE / name for name in ("bemind_deploy.py", "jsonc_edit.py", "manage.py", "model_download.py"))
         if (d.HERE / "gateway").is_dir():
             files.update(p for p in (d.HERE / "gateway").iterdir() if p.suffix in (".py", ".mjs"))
         uv = getattr(args, "_uv_command", None) or d.shutil.which("uv")
@@ -290,7 +293,7 @@ def preview(args, receipt, status):
                     current = project["version"]
             except (ValueError, TypeError, KeyError, UnicodeError):
                 pass
-    result = {"status": status, "action": args.command, "config_dir": args.config_dir,
+    result = {"status": status, "action": args.command, "installer_version": INSTALLER_VERSION, "config_dir": args.config_dir,
               "current_version": current, "prerequisites": prerequisites(args),
               "app_root": args.app_root, "store": args.store,
               "config": receipt["config"] if receipt else str(d.config_state(Path(args.config_dir), None)[0]),
@@ -319,9 +322,19 @@ def preview(args, receipt, status):
                       permissions="Existing stronger user policies win; Luna plan-agent writes remain denied. Direct mode retains its ledger_* policy.",
                       model=d.LUNA_MODEL if mode == "luna" else "Client-selected model (direct MCP)",
                       downloads="After confirmation: uv sync --frozen installs locked dependencies including semantic support; uv may download the requested Python.",
-                      semantic=("OPT-IN: enable bge-m3 local embeddings; potentially multi-GB model download and local model execution. "
-                                + ("Import from " + str(Path(args.model_dir).expanduser().absolute()) + "; missing artifacts may still require download." if args.model_dir else
-                                   "Download required model artifacts unless already cached.")) if args.semantic else
+                       semantic=("OPT-IN: enable bge-m3 local embeddings; potentially multi-GB model download and local model execution. "
+                                 + ("Import from " + str(Path(args.model_dir).expanduser().absolute())
+                                    + "; no curl download. The unmodified core may try its urllib downloader if the verified cache disappears after the final check." if args.model_dir and args.curl_model else
+                                    "Import from " + str(Path(args.model_dir).expanduser().absolute()) + "; missing artifacts may still require download." if args.model_dir else
+                                    "After final approval, fetch approximately 2.29 GB of pinned BAAI/bge-m3 files from https://huggingface.co "
+                                    + "at revision " + d.model_download.REVISION + " via curl only if the installed core cannot verify the cache. "
+                                    + "HTTPS-only redirects; verify every size and SHA-256 before import. Each of 9 files has a 4-hour curl limit; "
+                                    + "the whole install may take hours. Configured corporate HTTPS proxies are used; proxy credentials may be sent "
+                                    + "to that proxy, but no memory content, authentication headers, or curl credentials go to Hugging Face. "
+                                    + "No curl or semantic enable runs after a failed curl download. If the cache disappears after the final check, "
+                                    + "the unmodified core's enable command may still try its urllib downloader. "
+                                    + "Backlog indexing is scheduled asynchronously after enable." if args.curl_model else
+                                    "Download required model artifacts unless already cached.")) if args.semantic else
                                "Not requested: no semantic-enable/model-download command. Existing semantic settings and models are preserved.",
                       thread_activation=d.THREAD_RESTART_NOTE,
                       restart="Restart BeMind after installation to load the managed configuration.")
@@ -329,7 +342,7 @@ def preview(args, receipt, status):
 
 
 def show_preview(plan):
-    print(f"\nLedger Memory: {plan['action'].title()}")
+    print(f"\nLedger Memory installer {plan['installer_version']}: {plan['action'].title()}")
     current = plan["current_version"] or ("unknown (runtime metadata unavailable)" if plan["status"] == "installed" else "none")
     print(f"Detected state: {plan['status']}; current installed core: {current}")
     if "version" in plan:
@@ -392,6 +405,9 @@ def main(argv=None, *, input_fn=None):
         if (action == "uninstall" and receipt is None) or (action == "upgrade" and status != "installed"):
             raise d.DeployError("Selected action does not match the inspected installation state.")
         args.command = "uninstall" if action == "uninstall" else "install"
+        if args.auto_model and args.command == "install":
+            args.semantic = True
+            args.curl_model = True
         if args.command == "install":
             args._thread_selection = d.resolve_thread_selection(args.embed_threads, receipt)
         required = prerequisites(args)
@@ -472,6 +488,8 @@ def main(argv=None, *, input_fn=None):
         checked, current_receipt, current_status = inspect_installation(args)
         if current_status != status or current_receipt != receipt or material_state(checked, current_receipt) != before:
             raise d.DeployError("Material filesystem/configuration/receipt state changed after preview; nothing executed. Review a new preview.")
+        if args.command == "install" and args.curl_model:
+            args._curl_model_approved = True
         previous_umask = os.umask(0o077)
         try:
             message = d.deploy(args)

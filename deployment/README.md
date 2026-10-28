@@ -243,8 +243,11 @@ content remains untrusted, and existing model prechecks, approvals and privacy r
 
 ## Optional Semantic Search
 
-Model download is **off by default**. The optional inference libraries are installed,
-but keyword memory works without a downloaded model. To opt in:
+The existing setup-1 release leaves model download **off by default**. The upcoming
+installer 0.3.1 uses the pinned curl/verified-cache flow after final install or
+upgrade confirmation; it does not fetch the model during uninstall. The optional
+inference libraries are installed either way, and keyword memory works without
+a downloaded model. For manual package launchers, explicitly opt in:
 
 ```sh
 ./install.sh --semantic

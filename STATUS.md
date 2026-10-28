@@ -172,6 +172,32 @@ Updated October 27, 2026.
   No new kit, asset replacement or core revision is required. Publication does
   not upgrade existing installations or restart their workers.
 
+## Installer 0.3.1 Candidate
+
+- New separately identified installer `0.3.1` retains the actual core build
+  `0.3.0rc6` and its original distribution checksum. The public manifest still
+  selects the previously published setup-1 kit; this candidate is not published.
+- After the user confirms install or upgrade, the new manager enables BGE-M3.
+  It verifies an existing model cache first. If missing, curl fetches the pinned
+  Hugging Face revision over HTTPS, follows HTTPS-only redirects, validates every
+  expected size and SHA-256, imports with the unmodified core CLI, and enables
+  semantic search. Uninstall does not download a model. A failed download retains
+  the base installation and reports incomplete semantic setup.
+- A real network probe fetched and checksum-verified the 724,923-byte ONNX file.
+  A bounded 65,536-byte range request for the 2,266,820,608-byte weights returned
+  HTTP 206 and exactly 65,536 bytes; no full weights were downloaded for testing.
+  This verifies this Mac's path, not every colleague's firewall or full transfer.
+- Existing managed-installation upgrade with a missing cache is covered by an
+  isolated test: menu Upgrade, scope confirmation, downloader invocation, model
+  enable, preserved store and ownership. The installed core may retry its own
+  HTTPS downloader if the verified cache changes between final check and enable;
+  this rare fallback is disclosed in the preview, not falsely described as curl-only.
+- Complete isolated regression: 1,362 passed, six optional checks skipped,
+  144 subtests passed. Source and nested archive audits passed with zero findings.
+  Candidate `deployment/dist/bemind-ledger-memory-installer-0.3.1.zip` SHA-256:
+  `e7a80a59d9c07e069cfeb652b3de28a23cdaa619e34abd304d6e3a92bad529bc`.
+  The 2.29 GB download and Intel-Mac runtime remain untested end-to-end.
+
 ## Repository
 
 - Personal repository: `be-mihai-mlesnita/ledger-memory`, verified public after the owner's change.

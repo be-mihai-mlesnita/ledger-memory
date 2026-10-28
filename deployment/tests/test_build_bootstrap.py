@@ -20,7 +20,11 @@ def test_built_kit_passes_bootstrap_verification(tmp_path):
     destination = tmp_path / "verified"
     module.extract(output, destination, "root", digest)
     with zipfile.ZipFile(output) as archive:
-        assert {"manage.py", "bootstrap_verify.py", "bemind_deploy.py", "gateway/ledger_backend.py"} <= set(archive.namelist())
-    for relative in ("manage.py", "bootstrap_verify.py", "bemind_deploy.py", "gateway/ledger_backend.py"):
+        assert {"manage.py", "bootstrap_verify.py", "bemind_deploy.py", "model_download.py", "gateway/ledger_backend.py"} <= set(archive.namelist())
+    for relative in ("manage.py", "bootstrap_verify.py", "bemind_deploy.py", "model_download.py", "gateway/ledger_backend.py"):
         assert (destination / relative).read_bytes() == (deployment / relative).read_bytes()
     assert not (destination / "distribution.json").exists(), "The enabled manifest must stay outside the asset it hashes"
+
+    result = subprocess.run([sys.executable, "-I", "-B", str(destination / "manage.py"), "--help"],
+                            check=True, capture_output=True, text=True)
+    assert "--curl-model" in result.stdout
